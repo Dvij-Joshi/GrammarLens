@@ -3,7 +3,6 @@ package com.example.grammarlens.service
 import android.accessibilityservice.AccessibilityService
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
-import android.view.accessibility.AccessibilityNodeInfo
 import com.example.grammarlens.data.database.GrammarDatabase
 import com.example.grammarlens.data.database.MistakeEntity
 import com.example.grammarlens.network.GrammarChecker
@@ -33,27 +32,32 @@ class GrammarAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
-            val nodeInfo: AccessibilityNodeInfo? = event.source
-            val text = nodeInfo?.text?.toString() ?: return
+        val type = event?.eventType ?: return
+        if (type != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
 
-            // Check if sentence ends with punctuation
-            if (text.isNotEmpty() && text.last() in listOf('.', '?', '!')) {
-                // Cancel any existing debounce job
-                debounceJob?.cancel()
+        // Try source node text first, fall back to event text
+        val nodeText = event.source?.text?.toString()
+        val eventText = event.text?.joinToString("") { it }
+        val text = (nodeText ?: eventText)?.trim() ?: return
 
-                // Extract the current sentence. For simplicity, we process the whole text block or last sentence.
-                // Let's just process the entire text snippet for grammar checking if it's short, or split by punctuation.
-                val sentences = text.split(Regex("(?<=[.!?])\\s+"))
-                val lastSentence = sentences.lastOrNull()?.trim() ?: return
+        Log.d("GrammarLens", "Text event: '${text.takeLast(50)}'")
 
-                if (lastSentence.isNotEmpty()) {
-                    debounceJob = serviceScope.launch {
-                        delay(800) // 800ms debounce
-                        processSentence(lastSentence)
-                    }
-                }
-            }
+        // Trigger when the text contains a sentence-ending punctuation anywhere
+        val sentenceEndRegex = Regex("(?<=[.!?])\\s*$")
+        if (!sentenceEndRegex.containsMatchIn(text) && text.last() !in listOf('.', '?', '!')) return
+
+        debounceJob?.cancel()
+
+        // Split by sentence boundaries and get the last non-empty sentence
+        val parts = text.split(Regex("(?<=[.!?])\\s+"))
+        // The last part might be a new fragment or a complete sentence
+        val candidate = parts.lastOrNull { it.trim().length > 3 }?.trim() ?: return
+
+        Log.d("GrammarLens", "Candidate sentence to check: '$candidate'")
+
+        debounceJob = serviceScope.launch {
+            delay(800)
+            processSentence(candidate)
         }
     }
 
