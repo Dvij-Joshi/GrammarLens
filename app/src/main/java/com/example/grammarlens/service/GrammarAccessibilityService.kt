@@ -25,7 +25,7 @@ class GrammarAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        grammarChecker = GrammarChecker()
+        grammarChecker = GrammarChecker(this)
         overlayManager = FloatingOverlayManager(this)
         database = GrammarDatabase.getDatabase(this)
         Log.d("GrammarLens", "Accessibility Service Connected")

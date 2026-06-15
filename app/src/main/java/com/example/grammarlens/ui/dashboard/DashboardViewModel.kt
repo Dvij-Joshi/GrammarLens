@@ -1,12 +1,15 @@
 package com.example.grammarlens.ui.dashboard
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.grammarlens.data.database.GrammarDatabase
 import com.example.grammarlens.data.database.MistakeEntity
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
@@ -14,6 +17,23 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val db = GrammarDatabase.getDatabase(application)
     private val mistakeDao = db.mistakeDao()
+    private val sharedPrefs = application.getSharedPreferences("grammarlens_prefs", Context.MODE_PRIVATE)
+
+    private val _apiKey = MutableStateFlow(sharedPrefs.getString("groq_api_key", "") ?: "")
+    val apiKey: StateFlow<String> = _apiKey.asStateFlow()
+
+    private val _apiUrl = MutableStateFlow(sharedPrefs.getString("groq_api_url", "https://api.groq.com/openai/v1/") ?: "https://api.groq.com/openai/v1/")
+    val apiUrl: StateFlow<String> = _apiUrl.asStateFlow()
+
+    fun saveApiSettings(key: String, url: String) {
+        val validUrl = if (url.endsWith("/")) url else "$url/"
+        sharedPrefs.edit()
+            .putString("groq_api_key", key)
+            .putString("groq_api_url", validUrl)
+            .apply()
+        _apiKey.value = key
+        _apiUrl.value = validUrl
+    }
 
     val totalMistakesCount: StateFlow<Int> = mistakeDao.getTotalMistakesCount()
         .stateIn(viewModelScope, SharingStarted.Lazily, 0)

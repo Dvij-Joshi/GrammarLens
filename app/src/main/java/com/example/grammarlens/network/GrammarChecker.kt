@@ -1,5 +1,6 @@
 package com.example.grammarlens.network
 
+import android.content.Context
 import com.example.grammarlens.BuildConfig
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
@@ -7,21 +8,32 @@ import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-class GrammarChecker {
+class GrammarChecker(private val context: Context) {
 
-    private val apiService: GroqApiService
     private val gson = Gson()
+    private var currentBaseUrl = ""
+    private var apiService: GroqApiService? = null
 
-    init {
-        val retrofit = Retrofit.Builder()
-            .baseUrl("https://api.groq.com/openai/v1/")
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-        apiService = retrofit.create(GroqApiService::class.java)
+    private fun getApiService(baseUrl: String): GroqApiService {
+        if (apiService == null || currentBaseUrl != baseUrl) {
+            val validUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+            val retrofit = Retrofit.Builder()
+                .baseUrl(validUrl)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+            apiService = retrofit.create(GroqApiService::class.java)
+            currentBaseUrl = validUrl
+        }
+        return apiService!!
     }
 
     suspend fun analyzeSentence(sentence: String): GrammarCheckResult? = withContext(Dispatchers.IO) {
-        if (BuildConfig.GROQ_API_KEY.isEmpty()) {
+        val sharedPrefs = context.getSharedPreferences("grammarlens_prefs", Context.MODE_PRIVATE)
+        val savedKey = sharedPrefs.getString("groq_api_key", "") ?: ""
+        val apiKey = savedKey.ifEmpty { BuildConfig.GROQ_API_KEY }
+        val apiUrl = sharedPrefs.getString("groq_api_url", "https://api.groq.com/openai/v1/") ?: "https://api.groq.com/openai/v1/"
+
+        if (apiKey.isEmpty()) {
             return@withContext null
         }
 
@@ -53,8 +65,9 @@ class GrammarChecker {
         )
 
         try {
-            val response = apiService.checkGrammar(
-                authHeader = "Bearer ${BuildConfig.GROQ_API_KEY}",
+            val service = getApiService(apiUrl)
+            val response = service.checkGrammar(
+                authHeader = "Bearer $apiKey",
                 request = request
             )
 

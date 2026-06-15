@@ -31,6 +31,8 @@ fun DashboardScreen(
     val totalMistakes by viewModel.totalMistakesCount.collectAsState()
     val topCategories by viewModel.topMistakeCategories.collectAsState()
     val recentMistakes by viewModel.recentMistakes.collectAsState()
+    val currentApiKey by viewModel.apiKey.collectAsState()
+    val currentApiUrl by viewModel.apiUrl.collectAsState()
 
     Scaffold(
         topBar = {
@@ -72,6 +74,49 @@ fun DashboardScreen(
                             ) {
                                 Text("Grant Permissions")
                             }
+                        }
+                    }
+                }
+            }
+
+            // Settings Section
+            item {
+                Text("API Settings", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        var urlInput by remember(currentApiUrl) { mutableStateOf(currentApiUrl) }
+                        var keyInput by remember(currentApiKey) { mutableStateOf(currentApiKey) }
+
+                        Text("API Endpoint Link", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = urlInput,
+                            onValueChange = { urlInput = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text("Groq API Key", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = keyInput,
+                            onValueChange = { keyInput = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("gsk_...") },
+                            singleLine = true
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { viewModel.saveApiSettings(keyInput, urlInput) },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text("Save Settings")
                         }
                     }
                 }
