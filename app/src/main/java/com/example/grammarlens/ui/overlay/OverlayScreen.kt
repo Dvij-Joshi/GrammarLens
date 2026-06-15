@@ -22,10 +22,11 @@ import com.example.grammarlens.network.GrammarCheckResult
 
 @Composable
 fun OverlayScreen(
-    result: GrammarCheckResult?, 
-    isSuccess: Boolean = false, 
+    result: GrammarCheckResult?,
+    isSuccess: Boolean = false,
     isLoadingAction: Boolean = false,
     actionResult: String? = null,
+    onApplyFix: (String) -> Unit = {},
     onAction: (String) -> Unit = {},
     onDismiss: () -> Unit
 ) {
@@ -161,14 +162,10 @@ fun OverlayScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.End
                         ) {
-                            TextButton(onClick = {
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clipText = actionResult ?: result.correctedText
-                                val clip = ClipData.newPlainText("Corrected Text", clipText)
-                                clipboard.setPrimaryClip(clip)
-                                onDismiss()
+                            Button(onClick = {
+                                onApplyFix(result.correctedText)
                             }) {
-                                Text("Copy Fix")
+                                Text("✓ Apply Fix")
                             }
                         }
                     } else {

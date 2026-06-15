@@ -47,10 +47,10 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
     }
 
-    fun showOverlay(result: GrammarCheckResult, onAction: (String) -> Unit) {
+    fun showOverlay(result: GrammarCheckResult, onApplyFix: (String) -> Unit = {}, onAction: (String) -> Unit) {
         if (!Settings.canDrawOverlays(context)) return
 
-        hideOverlay() // remove existing
+        hideOverlay()
         isLoadingAction.value = false
         actionResult.value = null
 
@@ -62,9 +62,10 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                 val actResult by actionResult.collectAsState()
 
                 OverlayScreen(
-                    result = result, 
+                    result = result,
                     isLoadingAction = loading,
                     actionResult = actResult,
+                    onApplyFix = onApplyFix,
                     onAction = onAction,
                     onDismiss = { hideOverlay() }
                 )
@@ -78,8 +79,9 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else
                 @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            // FLAG_NOT_FOCUSABLE keeps the keyboard open while allowing overlay touch
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
@@ -117,12 +119,13 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else
                 @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
         }
+
 
         windowManager.addView(composeView, layoutParams)
 

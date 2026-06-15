@@ -1,8 +1,10 @@
 package com.example.grammarlens.service
 
 import android.accessibilityservice.AccessibilityService
+import android.os.Bundle
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import com.example.grammarlens.data.database.GrammarDatabase
 import com.example.grammarlens.data.database.MistakeEntity
 import com.example.grammarlens.network.GrammarChecker
@@ -18,10 +20,13 @@ class GrammarAccessibilityService : AccessibilityService() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO)
     private var debounceJob: Job? = null
-    
+
     private lateinit var grammarChecker: GrammarChecker
     private lateinit var overlayManager: FloatingOverlayManager
     private lateinit var database: GrammarDatabase
+
+    // Track the last focused editable node so we can replace text in it
+    private var lastEditableNode: AccessibilityNodeInfo? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -35,29 +40,30 @@ class GrammarAccessibilityService : AccessibilityService() {
         val type = event?.eventType ?: return
         if (type != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
 
-        // Try source node text first, fall back to event text
+        // Save the editable node for later text replacement
+        event.source?.let { node ->
+            if (node.isEditable) {
+                lastEditableNode = node
+            }
+        }
+
         val nodeText = event.source?.text?.toString()
         val eventText = event.text?.joinToString("") { it }
         val text = (nodeText ?: eventText)?.trim() ?: return
 
-        // Must have at least a few words to be worth checking
         if (text.split(" ").size < 2) return
 
         Log.d("GrammarLens", "Text event: '${text.takeLast(60)}'")
 
-        // Cancel existing debounce timer
         debounceJob?.cancel()
 
-        // Fast path: sentence ends with punctuation — check after 800ms
         val endsWithPunctuation = text.last() in listOf('.', '?', '!')
         val delayMs = if (endsWithPunctuation) 800L else 2500L
 
-        // Get the best candidate sentence
         val candidate = if (endsWithPunctuation) {
             val parts = text.split(Regex("(?<=[.!?])\\s+"))
             parts.lastOrNull { it.trim().length > 3 }?.trim() ?: text
         } else {
-            // Use the whole text for idle-based checking
             text
         }
 
@@ -67,6 +73,22 @@ class GrammarAccessibilityService : AccessibilityService() {
             delay(delayMs)
             processSentence(candidate)
         }
+    }
+
+    /** Replaces the text inside the currently focused input field */
+    fun replaceTextInFocusedField(newText: String) {
+        val node = lastEditableNode ?: findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        if (node == null) {
+            Log.w("GrammarLens", "No editable node found for text replacement")
+            return
+        }
+        val bundle = Bundle()
+        bundle.putCharSequence(
+            AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+            newText
+        )
+        val success = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle)
+        Log.d("GrammarLens", "Text replacement success: $success → '$newText'")
     }
 
     private suspend fun processSentence(sentence: String) {
@@ -83,16 +105,28 @@ class GrammarAccessibilityService : AccessibilityService() {
                 database.mistakeDao().insertMistake(entity)
 
                 withContext(Dispatchers.Main) {
-                    overlayManager.showOverlay(result, onAction = { actionType ->
-                        serviceScope.launch {
-                            withContext(Dispatchers.Main) { overlayManager.setActionLoading(true) }
-                            val newText = grammarChecker.applyActionToSentence(sentence, actionType)
-                            withContext(Dispatchers.Main) { overlayManager.setActionResult(newText) }
+                    overlayManager.showOverlay(
+                        result = result,
+                        onApplyFix = { fixedText ->
+                            replaceTextInFocusedField(fixedText)
+                            overlayManager.hideOverlay()
+                        },
+                        onAction = { actionType ->
+                            serviceScope.launch {
+                                withContext(Dispatchers.Main) { overlayManager.setActionLoading(true) }
+                                val newText = grammarChecker.applyActionToSentence(sentence, actionType)
+                                if (newText != null) {
+                                    // Auto-apply the result directly into the text field
+                                    replaceTextInFocusedField(newText)
+                                    withContext(Dispatchers.Main) { overlayManager.hideOverlay() }
+                                } else {
+                                    withContext(Dispatchers.Main) { overlayManager.setActionResult(null) }
+                                }
+                            }
                         }
-                    })
+                    )
                 }
             } else {
-                // Log correct sentences for tracking checks/streak
                 val entity = MistakeEntity(
                     originalText = sentence,
                     correctedText = sentence,
@@ -100,7 +134,7 @@ class GrammarAccessibilityService : AccessibilityService() {
                     isCorrect = true
                 )
                 database.mistakeDao().insertMistake(entity)
-                
+
                 withContext(Dispatchers.Main) {
                     overlayManager.showSuccessOverlay()
                 }
@@ -118,3 +152,4 @@ class GrammarAccessibilityService : AccessibilityService() {
         overlayManager.hideOverlay()
     }
 }
+
