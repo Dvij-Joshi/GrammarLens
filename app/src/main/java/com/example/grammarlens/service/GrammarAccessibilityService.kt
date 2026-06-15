@@ -40,23 +40,31 @@ class GrammarAccessibilityService : AccessibilityService() {
         val eventText = event.text?.joinToString("") { it }
         val text = (nodeText ?: eventText)?.trim() ?: return
 
-        Log.d("GrammarLens", "Text event: '${text.takeLast(50)}'")
+        // Must have at least a few words to be worth checking
+        if (text.split(" ").size < 2) return
 
-        // Trigger when the text contains a sentence-ending punctuation anywhere
-        val sentenceEndRegex = Regex("(?<=[.!?])\\s*$")
-        if (!sentenceEndRegex.containsMatchIn(text) && text.last() !in listOf('.', '?', '!')) return
+        Log.d("GrammarLens", "Text event: '${text.takeLast(60)}'")
 
+        // Cancel existing debounce timer
         debounceJob?.cancel()
 
-        // Split by sentence boundaries and get the last non-empty sentence
-        val parts = text.split(Regex("(?<=[.!?])\\s+"))
-        // The last part might be a new fragment or a complete sentence
-        val candidate = parts.lastOrNull { it.trim().length > 3 }?.trim() ?: return
+        // Fast path: sentence ends with punctuation — check after 800ms
+        val endsWithPunctuation = text.last() in listOf('.', '?', '!')
+        val delayMs = if (endsWithPunctuation) 800L else 2500L
 
-        Log.d("GrammarLens", "Candidate sentence to check: '$candidate'")
+        // Get the best candidate sentence
+        val candidate = if (endsWithPunctuation) {
+            val parts = text.split(Regex("(?<=[.!?])\\s+"))
+            parts.lastOrNull { it.trim().length > 3 }?.trim() ?: text
+        } else {
+            // Use the whole text for idle-based checking
+            text
+        }
+
+        Log.d("GrammarLens", "Scheduling check in ${delayMs}ms for: '${candidate.takeLast(50)}'")
 
         debounceJob = serviceScope.launch {
-            delay(800)
+            delay(delayMs)
             processSentence(candidate)
         }
     }
