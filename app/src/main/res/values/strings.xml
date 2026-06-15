@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">GrammarLens</string>
+    <string name="accessibility_service_description">GrammarLens monitors your text input in the background to automatically detect and correct grammar mistakes.</string>
 </resources>
