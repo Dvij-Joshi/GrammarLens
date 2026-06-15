@@ -35,7 +35,38 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         _apiUrl.value = validUrl
     }
 
-    val totalMistakesCount: StateFlow<Int> = mistakeDao.getTotalMistakesCount()
+    val totalChecksCount: StateFlow<Int> = mistakeDao.getTotalChecksCount()
+        .stateIn(viewModelScope, SharingStarted.Lazily, 0)
+
+    val currentStreak: StateFlow<Int> = mistakeDao.getDistinctCheckDates()
+        .map { dateStrings ->
+            // Dates are returned as "YYYY-MM-DD" in descending order
+            if (dateStrings.isEmpty()) return@map 0
+
+            var streak = 0
+            val today = java.time.LocalDate.now()
+            var currentDate = today
+
+            // If the user hasn't checked today, start checking from yesterday. 
+            // If they also didn't check yesterday, the streak is broken (0).
+            if (dateStrings.first() == today.toString()) {
+                currentDate = today
+            } else if (dateStrings.first() == today.minusDays(1).toString()) {
+                currentDate = today.minusDays(1)
+            } else {
+                return@map 0
+            }
+
+            for (dateStr in dateStrings) {
+                if (dateStr == currentDate.toString()) {
+                    streak++
+                    currentDate = currentDate.minusDays(1)
+                } else {
+                    break
+                }
+            }
+            streak
+        }
         .stateIn(viewModelScope, SharingStarted.Lazily, 0)
 
     val recentMistakes: StateFlow<List<MistakeEntity>> = mistakeDao.getRecentMistakes(10)

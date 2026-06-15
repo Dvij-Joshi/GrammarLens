@@ -10,5 +10,6 @@ data class MistakeEntity(
     val originalText: String,
     val correctedText: String,
     val mistakeTypes: List<String>, // Stored as JSON string
+    val isCorrect: Boolean = false,
     val timestamp: Long = System.currentTimeMillis()
 )

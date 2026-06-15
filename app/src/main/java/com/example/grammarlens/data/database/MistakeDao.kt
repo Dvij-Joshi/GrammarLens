@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface MistakeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertMistake(mistake: MistakeEntity): Long
+    fun insertMistake(mistake: MistakeEntity)
 
     @Query("SELECT * FROM mistakes ORDER BY timestamp DESC")
     fun getAllMistakes(): Flow<List<MistakeEntity>>
@@ -18,5 +18,11 @@ interface MistakeDao {
     fun getRecentMistakes(limit: Int): Flow<List<MistakeEntity>>
 
     @Query("SELECT COUNT(*) FROM mistakes")
+    fun getTotalChecksCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM mistakes WHERE isCorrect = 0")
     fun getTotalMistakesCount(): Flow<Int>
+
+    @Query("SELECT DISTINCT date(timestamp / 1000, 'unixepoch', 'localtime') FROM mistakes ORDER BY timestamp DESC")
+    fun getDistinctCheckDates(): Flow<List<String>>
 }

@@ -6,7 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
-@Database(entities = [MistakeEntity::class], version = 1, exportSchema = false)
+@Database(entities = [MistakeEntity::class], version = 2, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class GrammarDatabase : RoomDatabase() {
 
@@ -22,7 +22,9 @@ abstract class GrammarDatabase : RoomDatabase() {
                     context.applicationContext,
                     GrammarDatabase::class.java,
                     "grammar_lens_db"
-                ).build()
+                )
+                .fallbackToDestructiveMigration()
+                .build()
                 INSTANCE = instance
                 instance
             }

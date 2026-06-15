@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class GrammarAccessibilityService : AccessibilityService() {
 
@@ -57,26 +58,38 @@ class GrammarAccessibilityService : AccessibilityService() {
     }
 
     private suspend fun processSentence(sentence: String) {
-        Log.d("GrammarLens", "Processing sentence: ${"$"}sentence")
+        Log.d("GrammarLens", "Processing sentence: $sentence")
         val result = grammarChecker.analyzeSentence(sentence)
-
         if (result != null) {
-            if (!result.isGrammarCorrect && result.mistakes.isNotEmpty()) {
-                // Save to DB
+            if (!result.isGrammarCorrect) {
                 val entity = MistakeEntity(
-                    originalText = result.originalText,
+                    originalText = sentence,
                     correctedText = result.correctedText,
-                    mistakeTypes = result.mistakes.map { it.category }
+                    mistakeTypes = result.mistakes.map { it.category }.distinct(),
+                    isCorrect = false
                 )
                 database.mistakeDao().insertMistake(entity)
 
-                // Show overlay
-                launch(Dispatchers.Main) {
-                    overlayManager.showOverlay(result)
+                withContext(Dispatchers.Main) {
+                    overlayManager.showOverlay(result, onAction = { actionType ->
+                        serviceScope.launch {
+                            withContext(Dispatchers.Main) { overlayManager.setActionLoading(true) }
+                            val newText = grammarChecker.applyActionToSentence(sentence, actionType)
+                            withContext(Dispatchers.Main) { overlayManager.setActionResult(newText) }
+                        }
+                    })
                 }
             } else {
-                // Valid sentence, optionally show a tiny green tick and dismiss
-                launch(Dispatchers.Main) {
+                // Log correct sentences for tracking checks/streak
+                val entity = MistakeEntity(
+                    originalText = sentence,
+                    correctedText = sentence,
+                    mistakeTypes = emptyList(),
+                    isCorrect = true
+                )
+                database.mistakeDao().insertMistake(entity)
+                
+                withContext(Dispatchers.Main) {
                     overlayManager.showSuccessOverlay()
                 }
             }

@@ -80,4 +80,42 @@ class GrammarChecker(private val context: Context) {
             null
         }
     }
+
+    suspend fun applyActionToSentence(sentence: String, actionType: String): String? = withContext(Dispatchers.IO) {
+        val sharedPrefs = context.getSharedPreferences("grammarlens_prefs", Context.MODE_PRIVATE)
+        val savedKey = sharedPrefs.getString("groq_api_key", "") ?: ""
+        val apiKey = savedKey.ifEmpty { BuildConfig.GROQ_API_KEY }
+        val apiUrl = sharedPrefs.getString("groq_api_url", "https://api.groq.com/openai/v1/") ?: "https://api.groq.com/openai/v1/"
+
+        if (apiKey.isEmpty()) {
+            return@withContext null
+        }
+
+        val prompt = when (actionType) {
+            "Improve Vocabulary" -> "Rewrite the following sentence to use more advanced and professional vocabulary. Respond ONLY with the rewritten sentence, no extra text: \"$sentence\""
+            "Make Formal" -> "Rewrite the following sentence to sound highly formal and polite. Respond ONLY with the rewritten sentence, no extra text: \"$sentence\""
+            else -> return@withContext null
+        }
+
+        val request = GroqRequest(
+            messages = listOf(
+                GroqMessage(role = "system", content = "You are a writing assistant. You must reply only with the transformed sentence and nothing else."),
+                GroqMessage(role = "user", content = prompt)
+            ),
+            responseFormat = ResponseFormat(type = "text") // We just want plain text back
+        )
+
+        try {
+            val service = getApiService(apiUrl)
+            val response = service.checkGrammar(
+                authHeader = "Bearer $apiKey",
+                request = request
+            )
+
+            response.choices.firstOrNull()?.message?.content?.trim()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
 }

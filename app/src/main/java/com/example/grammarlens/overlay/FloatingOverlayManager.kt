@@ -6,6 +6,8 @@ import android.os.Build
 import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -20,6 +22,7 @@ import com.example.grammarlens.ui.overlay.OverlayScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 class FloatingOverlayManager(private val context: Context) : LifecycleOwner, SavedStateRegistryOwner {
@@ -29,6 +32,10 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
     
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
+
+    // State flows for overlay dynamically
+    private val isLoadingAction = MutableStateFlow(false)
+    private val actionResult = MutableStateFlow<String?>(null)
 
     override val lifecycle: Lifecycle get() = lifecycleRegistry
     override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
@@ -40,16 +47,27 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
     }
 
-    fun showOverlay(result: GrammarCheckResult) {
+    fun showOverlay(result: GrammarCheckResult, onAction: (String) -> Unit) {
         if (!Settings.canDrawOverlays(context)) return
 
         hideOverlay() // remove existing
+        isLoadingAction.value = false
+        actionResult.value = null
 
         composeView = ComposeView(context).apply {
             setViewTreeLifecycleOwner(this@FloatingOverlayManager)
             setViewTreeSavedStateRegistryOwner(this@FloatingOverlayManager)
             setContent {
-                OverlayScreen(result = result, onDismiss = { hideOverlay() })
+                val loading by isLoadingAction.collectAsState()
+                val actResult by actionResult.collectAsState()
+
+                OverlayScreen(
+                    result = result, 
+                    isLoadingAction = loading,
+                    actionResult = actResult,
+                    onAction = onAction,
+                    onDismiss = { hideOverlay() }
+                )
             }
         }
 
@@ -67,6 +85,15 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
         }
 
         windowManager.addView(composeView, layoutParams)
+    }
+
+    fun setActionLoading(isLoading: Boolean) {
+        isLoadingAction.value = isLoading
+    }
+
+    fun setActionResult(resultText: String?) {
+        actionResult.value = resultText
+        isLoadingAction.value = false
     }
 
     fun showSuccessOverlay() {

@@ -13,7 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import com.example.grammarlens.ui.dashboard.DashboardScreen
 import com.example.grammarlens.ui.theme.GrammarLensTheme
 

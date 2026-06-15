@@ -28,7 +28,8 @@ fun DashboardScreen(
     onOpenSettings: () -> Unit,
     hasPermissions: Boolean
 ) {
-    val totalMistakes by viewModel.totalMistakesCount.collectAsState()
+    val totalChecks by viewModel.totalChecksCount.collectAsState()
+    val currentStreak by viewModel.currentStreak.collectAsState()
     val topCategories by viewModel.topMistakeCategories.collectAsState()
     val recentMistakes by viewModel.recentMistakes.collectAsState()
     val currentApiKey by viewModel.apiKey.collectAsState()
@@ -129,13 +130,13 @@ fun DashboardScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     StatCard(
-                        title = "Total Mistakes",
-                        value = totalMistakes.toString(),
+                        title = "Total Checks",
+                        value = totalChecks.toString(),
                         modifier = Modifier.weight(1f)
                     )
                     StatCard(
                         title = "Current Streak",
-                        value = "3 days", // Mocked streak for now
+                        value = "$currentStreak days",
                         modifier = Modifier.weight(1f)
                     )
                 }

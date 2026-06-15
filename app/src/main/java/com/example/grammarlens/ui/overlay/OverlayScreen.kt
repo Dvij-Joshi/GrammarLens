@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,7 +21,14 @@ import androidx.compose.ui.unit.sp
 import com.example.grammarlens.network.GrammarCheckResult
 
 @Composable
-fun OverlayScreen(result: GrammarCheckResult?, isSuccess: Boolean = false, onDismiss: () -> Unit) {
+fun OverlayScreen(
+    result: GrammarCheckResult?, 
+    isSuccess: Boolean = false, 
+    isLoadingAction: Boolean = false,
+    actionResult: String? = null,
+    onAction: (String) -> Unit = {},
+    onDismiss: () -> Unit
+) {
     val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
 
@@ -120,6 +126,36 @@ fun OverlayScreen(result: GrammarCheckResult?, isSuccess: Boolean = false, onDis
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(top = 4.dp)
                         )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Actions
+                        if (isLoadingAction) {
+                            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                        } else if (actionResult != null) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text("Result:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                    Text(actionResult, fontSize = 14.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                }
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(onClick = { onAction("Improve Vocabulary") }, modifier = Modifier.weight(1f)) {
+                                    Text("Improve Vocab", fontSize = 12.sp)
+                                }
+                                OutlinedButton(onClick = { onAction("Make Formal") }, modifier = Modifier.weight(1f)) {
+                                    Text("Make Formal", fontSize = 12.sp)
+                                }
+                            }
+                        }
                         
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -127,12 +163,11 @@ fun OverlayScreen(result: GrammarCheckResult?, isSuccess: Boolean = false, onDis
                         ) {
                             TextButton(onClick = {
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clip = ClipData.newPlainText("Corrected Text", result.correctedText)
+                                val clipText = actionResult ?: result.correctedText
+                                val clip = ClipData.newPlainText("Corrected Text", clipText)
                                 clipboard.setPrimaryClip(clip)
                                 onDismiss()
                             }) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
                                 Text("Copy Fix")
                             }
                         }
