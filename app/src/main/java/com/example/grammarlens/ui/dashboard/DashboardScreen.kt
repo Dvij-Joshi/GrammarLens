@@ -73,10 +73,12 @@ fun DashboardScreen(
 
             // 0. Master Toggle
             item {
+                val effectiveActive = isServiceEnabled && hasPermissions
+                
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isServiceEnabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        containerColor = if (effectiveActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
                     )
                 ) {
                     Row(
@@ -88,19 +90,27 @@ fun DashboardScreen(
                     ) {
                         Column {
                             Text(
-                                if (isServiceEnabled) "GrammarLens is Active" else "GrammarLens is Paused",
+                                text = when {
+                                    !hasPermissions -> "System Permission Missing"
+                                    isServiceEnabled -> "GrammarLens is Active"
+                                    else -> "GrammarLens is Paused"
+                                },
                                 fontWeight = FontWeight.Bold,
-                                color = if (isServiceEnabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (effectiveActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                "Auto-checks grammar while typing",
+                                if (!hasPermissions) "Grant permissions to activate" else "Auto-checks grammar while typing",
                                 fontSize = 12.sp,
-                                color = if (isServiceEnabled) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                color = if (effectiveActive) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                             )
                         }
                         Switch(
-                            checked = isServiceEnabled,
-                            onCheckedChange = { viewModel.toggleServiceEnabled(it) }
+                            checked = effectiveActive,
+                            onCheckedChange = { if (hasPermissions) viewModel.toggleServiceEnabled(it) else onOpenSettings() },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                            )
                         )
                     }
                 }
