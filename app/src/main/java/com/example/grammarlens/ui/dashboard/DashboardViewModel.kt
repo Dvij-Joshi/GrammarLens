@@ -6,12 +6,37 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.grammarlens.data.database.GrammarDatabase
 import com.example.grammarlens.data.database.MistakeEntity
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.*
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+
+data class DailyTrend(
+    val date: LocalDate,
+    val dateString: String,
+    val mistakes: Int,
+    val checks: Int
+) {
+    val mistakeRate: Float get() = if (checks > 0) mistakes.toFloat() / checks else 0f
+}
+
+enum class ImprovementStatus { IMPROVING, WORSENING, SAME, NO_DATA }
+
+data class CategoryDetail(
+    val category: String,
+    val count: Int,
+    val percentage: Float,
+    val recentExamples: List<MistakeEntity>,
+    val improvement: ImprovementStatus
+)
+
+data class RepeatedMistake(
+    val originalText: String,
+    val correctedText: String,
+    val count: Int
+)
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -40,15 +65,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     val currentStreak: StateFlow<Int> = mistakeDao.getDistinctCheckDates()
         .map { dateStrings ->
-            // Dates are returned as "YYYY-MM-DD" in descending order
             if (dateStrings.isEmpty()) return@map 0
-
             var streak = 0
-            val today = java.time.LocalDate.now()
+            val today = LocalDate.now()
             var currentDate = today
-
-            // If the user hasn't checked today, start checking from yesterday. 
-            // If they also didn't check yesterday, the streak is broken (0).
             if (dateStrings.first() == today.toString()) {
                 currentDate = today
             } else if (dateStrings.first() == today.minusDays(1).toString()) {
@@ -56,7 +76,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             } else {
                 return@map 0
             }
-
             for (dateStr in dateStrings) {
                 if (dateStr == currentDate.toString()) {
                     streak++
@@ -69,21 +88,99 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
         .stateIn(viewModelScope, SharingStarted.Lazily, 0)
 
-    val recentMistakes: StateFlow<List<MistakeEntity>> = mistakeDao.getRecentMistakes(10)
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    private val allMistakesFlow = mistakeDao.getAllMistakes()
 
-    val topMistakeCategories: StateFlow<List<Pair<String, Int>>> = mistakeDao.getAllMistakes()
-        .map { mistakes ->
-            val categoryCounts = mutableMapOf<String, Int>()
-            mistakes.forEach { entity ->
-                entity.mistakeTypes.forEach { type ->
-                    categoryCounts[type] = categoryCounts.getOrDefault(type, 0) + 1
+    // 1. Trend Line (14 Days)
+    val trendData: StateFlow<List<DailyTrend>> = allMistakesFlow.map { entities ->
+        val today = LocalDate.now()
+        val fourteenDaysAgo = today.minusDays(13)
+        val dateFormatter = DateTimeFormatter.ofPattern("MMM dd")
+
+        // Initialize empty map for all 14 days
+        val dailyMap = mutableMapOf<LocalDate, Pair<Int, Int>>() // <Mistakes, Checks>
+        for (i in 0..13) {
+            dailyMap[fourteenDaysAgo.plusDays(i.toLong())] = Pair(0, 0)
+        }
+
+        entities.forEach { entity ->
+            val date = Instant.ofEpochMilli(entity.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
+            if (!date.isBefore(fourteenDaysAgo) && !date.isAfter(today)) {
+                val current = dailyMap[date] ?: Pair(0, 0)
+                val mistakesDelta = if (!entity.isCorrect) 1 else 0
+                dailyMap[date] = Pair(current.first + mistakesDelta, current.second + 1)
+            }
+        }
+
+        dailyMap.entries.sortedBy { it.key }.map { (date, counts) ->
+            DailyTrend(date, date.format(dateFormatter), counts.first, counts.second)
+        }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    // 2. Mistake Breakdown (Categories, %, Improvement, Examples)
+    val categoryBreakdown: StateFlow<List<CategoryDetail>> = allMistakesFlow.map { entities ->
+        val justMistakes = entities.filter { !it.isCorrect }
+        val totalMistakes = justMistakes.flatMap { it.mistakeTypes }.size.coerceAtLeast(1)
+        
+        val today = LocalDate.now()
+        val sevenDaysAgo = today.minusDays(7)
+        val fourteenDaysAgo = today.minusDays(14)
+
+        val categoriesMap = mutableMapOf<String, MutableList<MistakeEntity>>()
+        val last7DaysCount = mutableMapOf<String, Int>()
+        val previous7DaysCount = mutableMapOf<String, Int>()
+
+        justMistakes.forEach { entity ->
+            val date = Instant.ofEpochMilli(entity.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
+            entity.mistakeTypes.forEach { type ->
+                categoriesMap.getOrPut(type) { mutableListOf() }.add(entity)
+                
+                if (!date.isBefore(sevenDaysAgo)) {
+                    last7DaysCount[type] = last7DaysCount.getOrDefault(type, 0) + 1
+                } else if (!date.isBefore(fourteenDaysAgo) && date.isBefore(sevenDaysAgo)) {
+                    previous7DaysCount[type] = previous7DaysCount.getOrDefault(type, 0) + 1
                 }
             }
-            categoryCounts.entries
-                .sortedByDescending { it.value }
-                .take(3)
-                .map { it.key to it.value }
         }
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+        categoriesMap.map { (category, examples) ->
+            val currentWeek = last7DaysCount.getOrDefault(category, 0)
+            val pastWeek = previous7DaysCount.getOrDefault(category, 0)
+            
+            val improvement = when {
+                pastWeek == 0 && currentWeek == 0 -> ImprovementStatus.NO_DATA
+                currentWeek < pastWeek -> ImprovementStatus.IMPROVING
+                currentWeek > pastWeek -> ImprovementStatus.WORSENING
+                else -> ImprovementStatus.SAME
+            }
+
+            CategoryDetail(
+                category = category,
+                count = examples.size,
+                percentage = (examples.size.toFloat() / totalMistakes) * 100f,
+                recentExamples = examples.take(5), // Top 5 examples
+                improvement = improvement
+            )
+        }.sortedByDescending { it.count }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    // 3. Time-of-day Heatmap
+    val hourlyHeatmap: StateFlow<List<Float>> = allMistakesFlow.map { entities ->
+        val hourCounts = FloatArray(24) { 0f }
+        entities.filter { !it.isCorrect }.forEach { entity ->
+            val hour = Instant.ofEpochMilli(entity.timestamp).atZone(ZoneId.systemDefault()).hour
+            hourCounts[hour] += 1f
+        }
+        hourCounts.toList()
+    }.stateIn(viewModelScope, SharingStarted.Lazily, List(24) { 0f })
+
+    // 4. Most Repeated Mistake
+    val mostRepeatedMistake: StateFlow<RepeatedMistake?> = allMistakesFlow.map { entities ->
+        entities.filter { !it.isCorrect }
+            .groupBy { Pair(it.originalText, it.correctedText) }
+            .maxByOrNull { it.value.size }
+            ?.let { (pair, list) ->
+                if (list.size > 1) RepeatedMistake(pair.first, pair.second, list.size) else null
+            }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, null)
+
 }
