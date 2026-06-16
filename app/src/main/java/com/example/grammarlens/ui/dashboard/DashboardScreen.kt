@@ -147,7 +147,7 @@ fun DashboardScreen(
                 item { Text("No mistakes recorded yet. Keep typing!", color = Color.Gray) }
             } else {
                 items(categoryBreakdown) { category ->
-                    CategoryExpandableCard(category)
+                    CategoryExpandableCard(category, onDelete = { id -> viewModel.deleteMistake(id) })
                 }
             }
 
@@ -308,7 +308,7 @@ fun HourlyHeatmapCard(heatmap: List<Float>) {
 }
 
 @Composable
-fun CategoryExpandableCard(detail: CategoryDetail) {
+fun CategoryExpandableCard(detail: CategoryDetail, onDelete: (Long) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
 
     Card(
@@ -357,9 +357,17 @@ fun CategoryExpandableCard(detail: CategoryDetail) {
                     Spacer(Modifier.height(8.dp))
                     
                     detail.recentExamples.forEach { example ->
-                        Column(modifier = Modifier.padding(bottom = 12.dp)) {
-                            Text("« ${example.originalText} »", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
-                            Text("→ ${example.correctedText}", color = Color(0xFF4CAF50), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("« ${example.originalText} »", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
+                                Text("→ ${example.correctedText}", color = Color(0xFF4CAF50), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                            }
+                            IconButton(onClick = { onDelete(example.id) }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
+                            }
                         }
                     }
                 }

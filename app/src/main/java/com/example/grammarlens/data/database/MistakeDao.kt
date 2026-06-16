@@ -11,6 +11,9 @@ interface MistakeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertMistake(mistake: MistakeEntity)
 
+    @Query("DELETE FROM mistakes WHERE id = :id")
+    fun deleteMistake(id: Long)
+
     @Query("SELECT * FROM mistakes ORDER BY timestamp DESC")
     fun getAllMistakes(): Flow<List<MistakeEntity>>
 

@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.grammarlens.data.database.GrammarDatabase
 import com.example.grammarlens.data.database.MistakeEntity
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -66,6 +68,12 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             .apply()
         _apiKey.value = key
         _apiUrl.value = validUrl
+    }
+
+    fun deleteMistake(id: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            mistakeDao.deleteMistake(id)
+        }
     }
 
     val totalChecksCount: StateFlow<Int> = mistakeDao.getTotalChecksCount()
