@@ -192,20 +192,26 @@ fun OverlayScreen(
                             OutlinedButton(
                                 onClick = { onAction("Improve Vocabulary") },
                                 modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)
-                            ) { Text("Improve Vocab", fontSize = 11.sp) }
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+                            ) { Text("Vocab", fontSize = 11.sp, maxLines = 1) }
 
                             OutlinedButton(
                                 onClick = { onAction("Make Formal") },
                                 modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)
-                            ) { Text("Make Formal", fontSize = 11.sp) }
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+                            ) { Text("Formal", fontSize = 11.sp, maxLines = 1) }
+
+                            OutlinedButton(
+                                onClick = { onAction("Make Crisp & Educated") },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+                            ) { Text("Crisp", fontSize = 11.sp, maxLines = 1) }
 
                             Button(
                                 onClick = { onApplyFix(result.correctedText) },
                                 modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)
-                            ) { Text("✓ Apply", fontSize = 11.sp) }
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+                            ) { Text("✓ Apply", fontSize = 11.sp, maxLines = 1) }
                         }
                     }
                 }
