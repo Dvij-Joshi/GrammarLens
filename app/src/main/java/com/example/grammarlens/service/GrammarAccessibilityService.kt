@@ -1,6 +1,7 @@
 package com.example.grammarlens.service
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
@@ -37,6 +38,10 @@ class GrammarAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        val sharedPrefs = getSharedPreferences("grammarlens_prefs", Context.MODE_PRIVATE)
+        val isEnabled = sharedPrefs.getBoolean("service_enabled", true)
+        if (!isEnabled) return
+
         val type = event?.eventType ?: return
         if (type != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
 

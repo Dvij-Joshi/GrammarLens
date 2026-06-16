@@ -44,6 +44,7 @@ fun DashboardScreen(
     val mostRepeatedMistake by viewModel.mostRepeatedMistake.collectAsState()
     val currentApiKey by viewModel.apiKey.collectAsState()
     val currentApiUrl by viewModel.apiUrl.collectAsState()
+    val isServiceEnabled by viewModel.isServiceEnabled.collectAsState()
 
     Scaffold(
         topBar = {
@@ -68,6 +69,41 @@ fun DashboardScreen(
 
             if (!hasPermissions) {
                 item { PermissionWarningCard(onOpenSettings) }
+            }
+
+            // 0. Master Toggle
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isServiceEnabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                if (isServiceEnabled) "GrammarLens is Active" else "GrammarLens is Paused",
+                                fontWeight = FontWeight.Bold,
+                                color = if (isServiceEnabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "Auto-checks grammar while typing",
+                                fontSize = 12.sp,
+                                color = if (isServiceEnabled) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                            )
+                        }
+                        Switch(
+                            checked = isServiceEnabled,
+                            onCheckedChange = { viewModel.toggleServiceEnabled(it) }
+                        )
+                    }
+                }
             }
 
             // 1. Stats Row

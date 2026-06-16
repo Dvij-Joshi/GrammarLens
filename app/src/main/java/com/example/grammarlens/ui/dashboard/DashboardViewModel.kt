@@ -50,6 +50,14 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _apiUrl = MutableStateFlow(sharedPrefs.getString("groq_api_url", "https://api.groq.com/openai/v1/") ?: "https://api.groq.com/openai/v1/")
     val apiUrl: StateFlow<String> = _apiUrl.asStateFlow()
 
+    private val _isServiceEnabled = MutableStateFlow(sharedPrefs.getBoolean("service_enabled", true))
+    val isServiceEnabled: StateFlow<Boolean> = _isServiceEnabled.asStateFlow()
+
+    fun toggleServiceEnabled(enabled: Boolean) {
+        sharedPrefs.edit().putBoolean("service_enabled", enabled).apply()
+        _isServiceEnabled.value = enabled
+    }
+
     fun saveApiSettings(key: String, url: String) {
         val validUrl = if (url.endsWith("/")) url else "$url/"
         sharedPrefs.edit()
