@@ -8,7 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -18,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -27,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.grammarlens.data.database.MistakeEntity
+import com.example.grammarlens.ui.components.NeuColors
+import com.example.grammarlens.ui.components.NeumorphicCard
 import kotlin.math.max
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,10 +49,10 @@ fun DashboardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Grammar Coach", fontWeight = FontWeight.Bold) },
+                title = { Text("Grammar Coach", fontWeight = FontWeight.Bold, color = NeuColors.TextMain) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = NeuColors.Background,
+                    titleContentColor = NeuColors.TextMain
                 )
             )
         }
@@ -60,7 +60,7 @@ fun DashboardScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .background(NeuColors.Background)
                 .padding(padding)
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -75,12 +75,7 @@ fun DashboardScreen(
             item {
                 val effectiveActive = isServiceEnabled && hasPermissions
                 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (effectiveActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
+                NeumorphicCard(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -96,20 +91,22 @@ fun DashboardScreen(
                                     else -> "GrammarLens is Paused"
                                 },
                                 fontWeight = FontWeight.Bold,
-                                color = if (effectiveActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (effectiveActive) NeuColors.Primary else NeuColors.TextMain
                             )
                             Text(
                                 if (!hasPermissions) "Grant permissions to activate" else "Auto-checks grammar while typing",
                                 fontSize = 12.sp,
-                                color = if (effectiveActive) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                color = NeuColors.TextMain.copy(alpha = 0.8f)
                             )
                         }
                         Switch(
                             checked = effectiveActive,
                             onCheckedChange = { if (hasPermissions) viewModel.toggleServiceEnabled(it) else onOpenSettings() },
                             colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = NeuColors.Primary,
+                                uncheckedThumbColor = NeuColors.DarkShadow,
+                                uncheckedTrackColor = NeuColors.Background
                             )
                         )
                     }
@@ -141,10 +138,10 @@ fun DashboardScreen(
             item { HourlyHeatmapCard(hourlyHeatmap) }
 
             // 5. Category Breakdown
-            item { Text("Mistake Breakdown", fontWeight = FontWeight.Bold, fontSize = 20.sp, modifier = Modifier.padding(top = 8.dp)) }
+            item { Text("Mistake Breakdown", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = NeuColors.TextMain, modifier = Modifier.padding(top = 8.dp)) }
             
             if (categoryBreakdown.isEmpty()) {
-                item { Text("No mistakes recorded yet. Keep typing!", color = Color.Gray) }
+                item { Text("No mistakes recorded yet. Keep typing!", color = NeuColors.TextMain.copy(alpha = 0.6f)) }
             } else {
                 items(categoryBreakdown) { category ->
                     CategoryExpandableCard(category, onDelete = { id -> viewModel.deleteMistake(id) })
@@ -161,22 +158,19 @@ fun DashboardScreen(
 
 @Composable
 fun PermissionWarningCard(onOpenSettings: () -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    NeumorphicCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFE53E3E))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Permissions Required", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                Text("Permissions Required", fontWeight = FontWeight.Bold, color = Color(0xFFE53E3E))
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Please enable Accessibility and Overlay permissions for GrammarLens to work.", color = MaterialTheme.colorScheme.onErrorContainer)
+            Text("Please enable Accessibility and Overlay permissions for GrammarLens to work.", color = NeuColors.TextMain)
             Spacer(modifier = Modifier.height(8.dp))
             Button(
                 onClick = onOpenSettings,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53E3E))
             ) { Text("Grant Permissions") }
         }
     }
@@ -184,18 +178,14 @@ fun PermissionWarningCard(onOpenSettings: () -> Unit) {
 
 @Composable
 fun TrendChartCard(trendData: List<DailyTrend>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) {
+    NeumorphicCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Mistake Rate Trend (Last 14 Days)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Text("Mistakes ÷ Total Checks", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Mistake Rate Trend (Last 14 Days)", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = NeuColors.TextMain)
+            Text("Mistakes ÷ Total Checks", fontSize = 12.sp, color = NeuColors.TextMain.copy(alpha = 0.7f))
             Spacer(modifier = Modifier.height(16.dp))
 
             val maxRate = trendData.maxOfOrNull { it.mistakeRate }?.coerceAtLeast(0.1f) ?: 0.1f
-            val primaryColor = MaterialTheme.colorScheme.primary
+            val primaryColor = NeuColors.Primary
 
             Canvas(modifier = Modifier.fillMaxWidth().height(150.dp)) {
                 val width = size.width
@@ -205,7 +195,6 @@ fun TrendChartCard(trendData: List<DailyTrend>) {
                 val path = Path()
                 trendData.forEachIndexed { index, data ->
                     val x = index * pointWidth
-                    // Invert Y axis because 0 is at top
                     val y = height - (data.mistakeRate / maxRate * height)
                     if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
                 }
@@ -228,29 +217,26 @@ fun TrendChartCard(trendData: List<DailyTrend>) {
 
 @Composable
 fun RepeatedMistakeCard(mistake: RepeatedMistake) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
+    NeumorphicCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                Icon(Icons.Default.Refresh, contentDescription = null, tint = Color(0xFFE53E3E))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Most Repeated Mistake", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                Text("Most Repeated Mistake", fontWeight = FontWeight.Bold, color = Color(0xFFE53E3E))
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text("You've made this exact mistake ${mistake.count} times:", fontSize = 14.sp)
+            Text("You've made this exact mistake ${mistake.count} times:", fontSize = 14.sp, color = NeuColors.TextMain)
             Spacer(modifier = Modifier.height(8.dp))
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(NeuColors.Background) // Can add inner shadow here if desired
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
-                    Text("« ${mistake.originalText} »", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
+                    Text("« ${mistake.originalText} »", color = Color(0xFFE53E3E), fontWeight = FontWeight.Medium)
                     Spacer(Modifier.height(4.dp))
-                    Text("→ ${mistake.correctedText}", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+                    Text("→ ${mistake.correctedText}", color = Color(0xFF38A169), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -259,18 +245,14 @@ fun RepeatedMistakeCard(mistake: RepeatedMistake) {
 
 @Composable
 fun HourlyHeatmapCard(heatmap: List<Float>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) {
+    NeumorphicCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Time of Day Pattern", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Text("When do you make the most mistakes?", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Time of Day Pattern", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = NeuColors.TextMain)
+            Text("When do you make the most mistakes?", fontSize = 12.sp, color = NeuColors.TextMain.copy(alpha = 0.7f))
             Spacer(modifier = Modifier.height(16.dp))
 
             val maxVal = heatmap.maxOrNull()?.coerceAtLeast(1f) ?: 1f
-            val primaryColor = MaterialTheme.colorScheme.primary
+            val primaryColor = NeuColors.Primary
 
             Row(
                 modifier = Modifier.fillMaxWidth().height(100.dp),
@@ -296,7 +278,7 @@ fun HourlyHeatmapCard(heatmap: List<Float>) {
                             Text(
                                 text = "$hour", 
                                 fontSize = 8.sp, 
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = NeuColors.TextMain.copy(alpha = 0.7f),
                                 modifier = Modifier.padding(top = 4.dp)
                             )
                         }
@@ -311,32 +293,28 @@ fun HourlyHeatmapCard(heatmap: List<Float>) {
 fun CategoryExpandableCard(detail: CategoryDetail, onDelete: (Long) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
 
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(1.dp)
-    ) {
+    NeumorphicCard(modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(detail.category, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(detail.category, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = NeuColors.TextMain)
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("${String.format("%.1f", detail.percentage)}% of total (${detail.count})", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${String.format("%.1f", detail.percentage)}% of total (${detail.count})", fontSize = 13.sp, color = NeuColors.TextMain.copy(alpha = 0.7f))
                         Spacer(Modifier.width(8.dp))
                         
                         // Improvement Arrow
                         when (detail.improvement) {
                             ImprovementStatus.IMPROVING -> {
-                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Improving", tint = Color(0xFF4CAF50), modifier = Modifier.size(16.dp))
-                                Text("Improving", fontSize = 12.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Improving", tint = Color(0xFF38A169), modifier = Modifier.size(16.dp))
+                                Text("Improving", fontSize = 12.sp, color = Color(0xFF38A169), fontWeight = FontWeight.Bold)
                             }
                             ImprovementStatus.WORSENING -> {
-                                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Worsening", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
-                                Text("Worsening", fontSize = 12.sp, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Worsening", tint = Color(0xFFE53E3E), modifier = Modifier.size(16.dp))
+                                Text("Worsening", fontSize = 12.sp, color = Color(0xFFE53E3E), fontWeight = FontWeight.Bold)
                             }
                             else -> {}
                         }
@@ -345,15 +323,15 @@ fun CategoryExpandableCard(detail: CategoryDetail, onDelete: (Long) -> Unit) {
                 Icon(
                     imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = "Expand",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = NeuColors.TextMain
                 )
             }
 
             AnimatedVisibility(visible = expanded) {
                 Column(modifier = Modifier.padding(top = 16.dp)) {
-                    Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Divider(color = NeuColors.DarkShadow.copy(alpha = 0.2f))
                     Spacer(Modifier.height(12.dp))
-                    Text("Recent Examples:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text("Recent Examples:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NeuColors.Primary)
                     Spacer(Modifier.height(8.dp))
                     
                     detail.recentExamples.forEach { example ->
@@ -362,11 +340,11 @@ fun CategoryExpandableCard(detail: CategoryDetail, onDelete: (Long) -> Unit) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("« ${example.originalText} »", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
-                                Text("→ ${example.correctedText}", color = Color(0xFF4CAF50), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                Text("« ${example.originalText} »", color = NeuColors.TextMain, fontSize = 13.sp)
+                                Text("→ ${example.correctedText}", color = Color(0xFF38A169), fontSize = 13.sp, fontWeight = FontWeight.Medium)
                             }
                             IconButton(onClick = { onDelete(example.id) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
+                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFE53E3E).copy(alpha = 0.7f))
                             }
                         }
                     }
@@ -378,55 +356,65 @@ fun CategoryExpandableCard(detail: CategoryDetail, onDelete: (Long) -> Unit) {
 
 @Composable
 fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
+    NeumorphicCard(modifier = modifier) {
         Column(
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(title, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, fontSize = 14.sp, color = NeuColors.TextMain.copy(alpha = 0.7f))
             Spacer(modifier = Modifier.height(8.dp))
-            Text(value, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text(value, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = NeuColors.Primary)
         }
     }
 }
 
 @Composable
 fun ApiSettingsCard(currentApiKey: String, currentApiUrl: String, viewModel: DashboardViewModel) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
+    NeumorphicCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             var urlInput by remember(currentApiUrl) { mutableStateOf(currentApiUrl) }
             var keyInput by remember(currentApiKey) { mutableStateOf(currentApiKey) }
 
-            Text("API Settings", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("API Settings", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = NeuColors.TextMain)
             Spacer(modifier = Modifier.height(12.dp))
             
-            Text("API Endpoint Link", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text("API Endpoint Link", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = NeuColors.TextMain)
             Spacer(modifier = Modifier.height(4.dp))
             OutlinedTextField(
                 value = urlInput, onValueChange = { urlInput = it },
-                modifier = Modifier.fillMaxWidth(), singleLine = true
+                modifier = Modifier.fillMaxWidth(), singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = NeuColors.DarkShadow.copy(alpha = 0.2f),
+                    focusedBorderColor = NeuColors.Primary
+                )
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Text("Groq API Key", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text("Groq API Key", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = NeuColors.TextMain)
             Spacer(modifier = Modifier.height(4.dp))
             OutlinedTextField(
                 value = keyInput, onValueChange = { keyInput = it },
-                modifier = Modifier.fillMaxWidth(), placeholder = { Text("gsk_...") }, singleLine = true
+                modifier = Modifier.fillMaxWidth(), placeholder = { Text("gsk_...") }, singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = NeuColors.DarkShadow.copy(alpha = 0.2f),
+                    focusedBorderColor = NeuColors.Primary
+                )
             )
             
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = { viewModel.saveApiSettings(keyInput, urlInput) },
-                modifier = Modifier.align(Alignment.End)
-            ) { Text("Save Settings") }
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Neumorphic Button
+            Box(
+                modifier = Modifier
+                    .align(Alignment.End)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(NeuColors.Primary)
+                    .clickable { viewModel.saveApiSettings(keyInput, urlInput) }
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                Text("Save Settings", color = Color.White, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

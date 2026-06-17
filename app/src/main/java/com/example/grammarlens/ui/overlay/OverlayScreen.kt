@@ -1,6 +1,8 @@
 package com.example.grammarlens.ui.overlay
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,11 +14,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.grammarlens.network.GrammarCheckResult
+import com.example.grammarlens.ui.components.NeuColors
+import com.example.grammarlens.ui.components.NeumorphicCard
+import com.example.grammarlens.ui.components.neumorphic
 
 @Composable
 fun OverlayScreen(
@@ -29,7 +35,6 @@ fun OverlayScreen(
     onExpand: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
-    // Success: auto-dismissed small green tick — no expansion needed
     if (isSuccess) {
         Box(
             modifier = Modifier
@@ -37,10 +42,11 @@ fun OverlayScreen(
                 .padding(end = 16.dp, bottom = 8.dp),
             contentAlignment = Alignment.BottomEnd
         ) {
-            Surface(
-                shape = CircleShape,
-                color = Color(0xFF4CAF50),
-                shadowElevation = 6.dp
+            Box(
+                modifier = Modifier
+                    .neumorphic(cornerRadius = 24.dp, elevation = 4.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xFF38A169))
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -68,46 +74,44 @@ fun OverlayScreen(
             enter = scaleIn() + fadeIn(),
             exit = scaleOut() + fadeOut()
         ) {
-            // --- COLLAPSED: small red bubble ---
             Box(
                 modifier = Modifier.padding(end = 16.dp, bottom = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Surface(
-                    onClick = {
-                        isExpanded = true
-                        onExpand()
-                    },
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.error,
-                    shadowElevation = 8.dp,
-                    modifier = Modifier.size(52.dp)
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .neumorphic(cornerRadius = 26.dp, elevation = 6.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE53E3E))
+                        .clickable {
+                            isExpanded = true
+                            onExpand()
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Default.Warning,
-                            contentDescription = "Grammar mistake",
-                            tint = Color.White,
-                            modifier = Modifier.size(26.dp)
-                        )
-                    }
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = "Grammar mistake",
+                        tint = Color.White,
+                        modifier = Modifier.size(26.dp)
+                    )
                 }
-                // Badge with count
-                Surface(
-                    shape = CircleShape,
-                    color = Color(0xFFFF5722),
+                Box(
                     modifier = Modifier
                         .size(18.dp)
                         .align(Alignment.TopEnd)
+                        .neumorphic(cornerRadius = 9.dp, elevation = 2.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFDD6B20)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            "${result.mistakes.size}",
-                            fontSize = 10.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    Text(
+                        "${result.mistakes.size}",
+                        fontSize = 10.sp,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -117,15 +121,14 @@ fun OverlayScreen(
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
             exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
         ) {
-            // --- EXPANDED: compact card (positioned above keyboard by window manager) ---
-            Surface(
-                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 16.dp,
-                modifier = Modifier.fillMaxWidth()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .neumorphic(cornerRadius = 20.dp, elevation = 16.dp)
+                    .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .background(NeuColors.Background)
             ) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                    // Header
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -135,7 +138,7 @@ fun OverlayScreen(
                             Icon(
                                 Icons.Default.Warning,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
+                                tint = Color(0xFFE53E3E),
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(Modifier.width(6.dp))
@@ -143,26 +146,26 @@ fun OverlayScreen(
                                 "${result.mistakes.size} mistake${if (result.mistakes.size > 1) "s" else ""} found",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp,
-                                color = MaterialTheme.colorScheme.error
+                                color = Color(0xFFE53E3E)
                             )
                         }
                         IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                            Icon(Icons.Default.Close, contentDescription = "Dismiss", modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = NeuColors.TextMain, modifier = Modifier.size(18.dp))
                         }
                     }
 
                     Spacer(Modifier.height(6.dp))
 
-                    // Category chips
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         result.mistakes.map { it.category }.distinct().take(3).forEach { cat ->
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.errorContainer
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(NeuColors.Primary.copy(alpha = 0.1f))
                             ) {
                                 Text(
                                     cat, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    fontSize = 11.sp, color = MaterialTheme.colorScheme.onErrorContainer
+                                    fontSize = 11.sp, color = NeuColors.Primary
                                 )
                             }
                         }
@@ -170,52 +173,72 @@ fun OverlayScreen(
 
                     Spacer(Modifier.height(8.dp))
 
-                    // Corrected text preview
-                    Text("Fix:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Fix:", fontSize = 12.sp, color = NeuColors.TextMain.copy(alpha = 0.7f))
                     Text(
                         result.correctedText,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = NeuColors.TextMain,
                         fontSize = 14.sp
                     )
 
                     Spacer(Modifier.height(10.dp))
 
                     if (isLoadingAction) {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = NeuColors.Primary, trackColor = NeuColors.DarkShadow.copy(alpha = 0.2f))
                     } else {
-                        // Action buttons row
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            OutlinedButton(
+                            NeuButton(
+                                text = "Vocab",
                                 onClick = { onAction("Improve Vocabulary") },
-                                modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
-                            ) { Text("Vocab", fontSize = 11.sp, maxLines = 1) }
+                                modifier = Modifier.weight(1f)
+                            )
 
-                            OutlinedButton(
+                            NeuButton(
+                                text = "Formal",
                                 onClick = { onAction("Make Formal") },
-                                modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
-                            ) { Text("Formal", fontSize = 11.sp, maxLines = 1) }
+                                modifier = Modifier.weight(1f)
+                            )
 
-                            OutlinedButton(
+                            NeuButton(
+                                text = "Crisp",
                                 onClick = { onAction("Make Crisp & Educated") },
-                                modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
-                            ) { Text("Crisp", fontSize = 11.sp, maxLines = 1) }
+                                modifier = Modifier.weight(1f)
+                            )
 
-                            Button(
+                            NeuButton(
+                                text = "✓ Apply",
                                 onClick = { onApplyFix(result.correctedText) },
                                 modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
-                            ) { Text("✓ Apply", fontSize = 11.sp, maxLines = 1) }
+                                isPrimary = true
+                            )
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun NeuButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, isPrimary: Boolean = false) {
+    Box(
+        modifier = modifier
+            .neumorphic(cornerRadius = 8.dp, elevation = 4.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isPrimary) NeuColors.Primary else NeuColors.Background)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontSize = 11.sp,
+            maxLines = 1,
+            color = if (isPrimary) Color.White else NeuColors.TextMain,
+            fontWeight = if (isPrimary) FontWeight.Bold else FontWeight.Medium
+        )
     }
 }
