@@ -66,7 +66,12 @@ fun DashboardScreen(
                     categoryBreakdown = categoryBreakdown,
                     onDeleteMistake = { viewModel.deleteMistake(it) }
                 )
-                // Tabs 2 and 3 (Settings/Profile) can be stubbed or fallback to Dashboard for now
+                2 -> SettingsTab(
+                    viewModel = viewModel,
+                    currentApiKey = currentApiKey,
+                    currentApiUrl = currentApiUrl
+                )
+                // Tab 3 (Profile) can be stubbed or fallback to Dashboard for now
                 else -> DashboardTab(
                     isServiceEnabled = isServiceEnabled,
                     hasPermissions = hasPermissions,
@@ -189,11 +194,122 @@ fun DashboardTab(
                 }
             }
 
-            // API Settings at the bottom
-            item { ApiSettingsCard(currentApiKey, currentApiUrl, viewModel) }
-            
             item { Spacer(Modifier.height(32.dp)) }
         }
+}
+
+@Composable
+fun SettingsTab(
+    viewModel: DashboardViewModel,
+    currentApiKey: String,
+    currentApiUrl: String
+) {
+    val pauseDurationMins by viewModel.pauseDurationMins.collectAsState()
+    val pauseUntil by viewModel.pauseUntil.collectAsState()
+    
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item { Spacer(Modifier.height(8.dp)) }
+        
+        item {
+            Text(
+                "Settings",
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 28.sp,
+                color = PastelColors.TextMain
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Configure your GrammarLens experience",
+                fontSize = 14.sp,
+                color = PastelColors.TextMain.copy(alpha=0.6f)
+            )
+            Spacer(Modifier.height(16.dp))
+        }
+
+        item {
+            PauseConfigurationCard(
+                pauseDurationMins = pauseDurationMins,
+                pauseUntil = pauseUntil,
+                onDurationChange = { viewModel.setPauseDurationMins(it) },
+                onPauseToggle = {
+                    val now = System.currentTimeMillis()
+                    if (pauseUntil > now) {
+                        viewModel.setPauseUntil(0L) // Cancel pause
+                    } else {
+                        viewModel.setPauseUntil(now + (pauseDurationMins * 60 * 1000L)) // Start pause
+                    }
+                }
+            )
+        }
+
+        item { ApiSettingsCard(currentApiKey, currentApiUrl, viewModel) }
+        
+        item { Spacer(Modifier.height(32.dp)) }
+    }
+}
+
+@Composable
+fun PauseConfigurationCard(
+    pauseDurationMins: Int,
+    pauseUntil: Long,
+    onDurationChange: (Int) -> Unit,
+    onPauseToggle: () -> Unit
+) {
+    val isPaused = pauseUntil > System.currentTimeMillis()
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(32.dp))
+            .background(Color.White)
+            .padding(24.dp)
+    ) {
+        Column {
+            Text("Quick Pause", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = PastelColors.TextMain)
+            Spacer(Modifier.height(8.dp))
+            Text("Set the default duration when you pause corrections from the grammar popup.", fontSize = 14.sp, color = PastelColors.TextMain.copy(alpha=0.6f))
+            Spacer(Modifier.height(16.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                listOf(5, 15, 30, 60).forEach { mins ->
+                    val selected = pauseDurationMins == mins
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (selected) PastelColors.CardPurple else PastelColors.Background)
+                            .clickable { onDurationChange(mins) }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("${mins}m", color = if (selected) PastelColors.TextMain else PastelColors.TextMain.copy(alpha=0.5f), fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                    }
+                }
+            }
+            
+            Spacer(Modifier.height(24.dp))
+            
+            Button(
+                onClick = onPauseToggle,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = if (isPaused) PastelColors.ButtonPink else PastelColors.ToggleOn),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text(
+                    text = if (isPaused) "Cancel Pause" else "Pause Now for ${pauseDurationMins}m",
+                    color = if (isPaused) PastelColors.TextMain else Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
 }
 
 @Composable

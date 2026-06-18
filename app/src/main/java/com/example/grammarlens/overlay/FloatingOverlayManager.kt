@@ -47,7 +47,13 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
     }
 
-    fun showOverlay(result: GrammarCheckResult, onApplyFix: (String) -> Unit = {}, onAction: (String) -> Unit) {
+    fun showOverlay(
+        result: GrammarCheckResult,
+        pauseDurationMins: Int,
+        onApplyFix: (String) -> Unit = {},
+        onAction: (String) -> Unit,
+        onPause: () -> Unit
+    ) {
         if (!Settings.canDrawOverlays(context)) return
 
         hideOverlay()
@@ -65,8 +71,10 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                     result = result,
                     isLoadingAction = loading,
                     actionResult = actResult,
+                    pauseDurationMins = pauseDurationMins,
                     onApplyFix = onApplyFix,
                     onAction = onAction,
+                    onPause = onPause,
                     onDismiss = { hideOverlay() }
                 )
             }

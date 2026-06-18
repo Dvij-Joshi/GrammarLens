@@ -55,9 +55,25 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _isServiceEnabled = MutableStateFlow(sharedPrefs.getBoolean("service_enabled", true))
     val isServiceEnabled: StateFlow<Boolean> = _isServiceEnabled.asStateFlow()
 
+    private val _pauseDurationMins = MutableStateFlow(sharedPrefs.getInt("pause_duration_mins", 15))
+    val pauseDurationMins: StateFlow<Int> = _pauseDurationMins.asStateFlow()
+
+    private val _pauseUntil = MutableStateFlow(sharedPrefs.getLong("pause_until", 0L))
+    val pauseUntil: StateFlow<Long> = _pauseUntil.asStateFlow()
+
     fun toggleServiceEnabled(enabled: Boolean) {
         sharedPrefs.edit().putBoolean("service_enabled", enabled).apply()
         _isServiceEnabled.value = enabled
+    }
+
+    fun setPauseDurationMins(mins: Int) {
+        sharedPrefs.edit().putInt("pause_duration_mins", mins).apply()
+        _pauseDurationMins.value = mins
+    }
+
+    fun setPauseUntil(timestamp: Long) {
+        sharedPrefs.edit().putLong("pause_until", timestamp).apply()
+        _pauseUntil.value = timestamp
     }
 
     fun saveApiSettings(key: String, url: String) {

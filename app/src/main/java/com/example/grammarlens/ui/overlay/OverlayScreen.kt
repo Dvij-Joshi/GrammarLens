@@ -28,8 +28,10 @@ fun OverlayScreen(
     isSuccess: Boolean = false,
     isLoadingAction: Boolean = false,
     actionResult: String? = null,
+    pauseDurationMins: Int = 15,
     onApplyFix: (String) -> Unit = {},
     onAction: (String) -> Unit = {},
+    onPause: () -> Unit = {},
     onExpand: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
@@ -179,6 +181,16 @@ fun OverlayScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text("Apply Correction ->", color = PastelColors.TextMain, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onPause() }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Pause for ${pauseDurationMins}m", color = PastelColors.TextMain.copy(alpha=0.6f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }

@@ -39,8 +39,9 @@ class GrammarAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val sharedPrefs = getSharedPreferences("grammarlens_prefs", Context.MODE_PRIVATE)
-        val isEnabled = sharedPrefs.getBoolean("service_enabled", true)
-        if (!isEnabled) return
+        if (!sharedPrefs.getBoolean("service_enabled", true)) return
+        
+        if (System.currentTimeMillis() < sharedPrefs.getLong("pause_until", 0L)) return
 
         val type = event?.eventType ?: return
         if (type != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
@@ -110,8 +111,12 @@ class GrammarAccessibilityService : AccessibilityService() {
                 database.mistakeDao().insertMistake(entity)
 
                 withContext(Dispatchers.Main) {
+                    val prefs = getSharedPreferences("grammarlens_prefs", Context.MODE_PRIVATE)
+                    val pauseMins = prefs.getInt("pause_duration_mins", 15)
+                    
                     overlayManager.showOverlay(
                         result = result,
+                        pauseDurationMins = pauseMins,
                         onApplyFix = { fixedText ->
                             replaceTextInFocusedField(fixedText)
                             overlayManager.hideOverlay()
@@ -121,13 +126,17 @@ class GrammarAccessibilityService : AccessibilityService() {
                                 withContext(Dispatchers.Main) { overlayManager.setActionLoading(true) }
                                 val newText = grammarChecker.applyActionToSentence(sentence, actionType)
                                 if (newText != null) {
-                                    // Auto-apply the result directly into the text field
                                     replaceTextInFocusedField(newText)
                                     withContext(Dispatchers.Main) { overlayManager.hideOverlay() }
                                 } else {
                                     withContext(Dispatchers.Main) { overlayManager.setActionResult(null) }
                                 }
                             }
+                        },
+                        onPause = {
+                            val now = System.currentTimeMillis()
+                            prefs.edit().putLong("pause_until", now + (pauseMins * 60 * 1000L)).apply()
+                            overlayManager.hideOverlay()
                         }
                     )
                 }
