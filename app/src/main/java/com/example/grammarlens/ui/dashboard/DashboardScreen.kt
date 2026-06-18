@@ -631,6 +631,27 @@ fun ApiSettingsCard(currentApiKey: String, currentApiUrl: String, viewModel: Das
             var keyInput by remember(currentApiKey) { mutableStateOf(currentApiKey) }
 
             Text("Groq API Configuration", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PastelColors.TextMain)
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(PastelColors.Background)
+                    .padding(12.dp)
+            ) {
+                Text(
+                    "How to get a free API key:\n" +
+                    "1. Visit console.groq.com\n" +
+                    "2. Log in or create an account\n" +
+                    "3. Go to 'API Keys' in the menu\n" +
+                    "4. Create a new key and paste it below", 
+                    fontSize = 12.sp, 
+                    color = PastelColors.TextMain.copy(alpha=0.7f),
+                    lineHeight = 18.sp
+                )
+            }
+            
             Spacer(modifier = Modifier.height(16.dp))
             
             Text("Groq API Key", fontSize = 12.sp, color = PastelColors.TextMain.copy(alpha=0.6f))
