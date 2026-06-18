@@ -21,6 +21,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -426,6 +427,33 @@ fun ErrorsTab(
                 Text("No mistakes recorded yet. Keep typing!", color = PastelColors.TextMain.copy(alpha = 0.5f))
             }
         } else {
+            item {
+                val context = LocalContext.current
+                Button(
+                    onClick = {
+                        val report = buildString {
+                            append("My GrammarLens Progress Report\n\n")
+                            categoryBreakdown.forEach {
+                                append("- ${it.category}: ${it.count} mistakes (${String.format("%.1f", it.percentage)}%)\n")
+                            }
+                            append("\nCheck out GrammarLens to improve your writing too!")
+                        }
+                        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(android.content.Intent.EXTRA_TEXT, report)
+                        }
+                        context.startActivity(android.content.Intent.createChooser(intent, "Share Progress"))
+                    },
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = PastelColors.CardBlue),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = "Share", tint = Color.White)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Share Progress Report", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
+            
             items(categoryBreakdown) { category ->
                 CategoryExpandableCard(category, onDelete = onDeleteMistake)
             }
