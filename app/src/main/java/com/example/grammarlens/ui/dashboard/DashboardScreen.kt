@@ -321,6 +321,14 @@ fun SettingsTab(
             )
         }
         
+        item {
+            AppBlacklistCard(
+                blacklistedApps = viewModel.blacklistedApps.collectAsState().value,
+                onAddApp = { viewModel.addBlacklistedApp(it) },
+                onRemoveApp = { viewModel.removeBlacklistedApp(it) }
+            )
+        }
+        
         item { Spacer(Modifier.height(32.dp)) }
     }
 }
@@ -889,6 +897,63 @@ fun LanguageSelectionCard(
                                 expanded = false
                             }
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun AppBlacklistCard(
+    blacklistedApps: List<String>,
+    onAddApp: (String) -> Unit,
+    onRemoveApp: (String) -> Unit
+) {
+    var newApp by remember { mutableStateOf("") }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(32.dp))
+            .background(Color.White)
+            .padding(24.dp)
+    ) {
+        Column {
+            Text("App Blacklist", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = PastelColors.TextMain)
+            Spacer(Modifier.height(8.dp))
+            Text("GrammarLens will NOT check your text when typing in these apps. Enter the exact package name (e.g. com.whatsapp).", fontSize = 14.sp, color = PastelColors.TextMain.copy(alpha=0.6f))
+            Spacer(Modifier.height(16.dp))
+            
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = newApp, onValueChange = { newApp = it },
+                    modifier = Modifier.weight(1f), placeholder = { Text("Package name...") }, singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = Color(0xFFE2E8F0),
+                        focusedBorderColor = PastelColors.CardBlue
+                    )
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = { 
+                    if(newApp.isNotBlank()) { onAddApp(newApp); newApp = "" }
+                }, modifier = Modifier.size(48.dp).clip(CircleShape).background(PastelColors.CardBlue)) {
+                    Icon(Icons.Default.Add, contentDescription = "Add", tint = PastelColors.TextMain)
+                }
+            }
+            
+            if (blacklistedApps.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    blacklistedApps.forEach { app ->
+                        Box(modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(PastelColors.Background).clickable { onRemoveApp(app) }.padding(horizontal=12.dp, vertical=6.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(app, fontSize = 13.sp, color = PastelColors.TextMain)
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp), tint = PastelColors.ButtonPink)
+                            }
+                        }
                     }
                 }
             }

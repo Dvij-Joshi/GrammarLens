@@ -43,6 +43,10 @@ class GrammarAccessibilityService : AccessibilityService() {
         
         if (System.currentTimeMillis() < sharedPrefs.getLong("pause_until", 0L)) return
 
+        val packageName = event?.packageName?.toString() ?: ""
+        val blacklistedApps = sharedPrefs.getStringSet("blacklisted_apps", emptySet()) ?: emptySet()
+        if (blacklistedApps.contains(packageName.lowercase())) return
+
         val type = event?.eventType ?: return
         if (type != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
 

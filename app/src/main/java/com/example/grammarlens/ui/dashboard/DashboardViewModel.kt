@@ -74,6 +74,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     )
     val ignoredWords: StateFlow<List<String>> = _ignoredWords.asStateFlow()
 
+    private val _blacklistedApps = MutableStateFlow(
+        sharedPrefs.getStringSet("blacklisted_apps", emptySet())?.toList()?.sorted() ?: emptyList()
+    )
+    val blacklistedApps: StateFlow<List<String>> = _blacklistedApps.asStateFlow()
+
     fun addIgnoredWord(word: String) {
         val currentSet = sharedPrefs.getStringSet("ignored_words", emptySet())?.toMutableSet() ?: mutableSetOf()
         if (currentSet.add(word.trim().lowercase())) {
@@ -87,6 +92,22 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         if (currentSet.remove(word.trim().lowercase())) {
             sharedPrefs.edit().putStringSet("ignored_words", currentSet).apply()
             _ignoredWords.value = currentSet.toList().sorted()
+        }
+    }
+
+    fun addBlacklistedApp(packageName: String) {
+        val currentSet = sharedPrefs.getStringSet("blacklisted_apps", emptySet())?.toMutableSet() ?: mutableSetOf()
+        if (currentSet.add(packageName.trim().lowercase())) {
+            sharedPrefs.edit().putStringSet("blacklisted_apps", currentSet).apply()
+            _blacklistedApps.value = currentSet.toList().sorted()
+        }
+    }
+
+    fun removeBlacklistedApp(packageName: String) {
+        val currentSet = sharedPrefs.getStringSet("blacklisted_apps", emptySet())?.toMutableSet() ?: mutableSetOf()
+        if (currentSet.remove(packageName.trim().lowercase())) {
+            sharedPrefs.edit().putStringSet("blacklisted_apps", currentSet).apply()
+            _blacklistedApps.value = currentSet.toList().sorted()
         }
     }
 
