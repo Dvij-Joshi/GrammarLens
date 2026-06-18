@@ -24,10 +24,11 @@ import androidx.compose.ui.unit.sp
 import com.example.grammarlens.network.GrammarCheckResult
 import com.example.grammarlens.ui.components.PastelColors
 
+import com.example.grammarlens.overlay.OverlayState
+
 @Composable
 fun OverlayScreen(
-    result: GrammarCheckResult?,
-    isSuccess: Boolean = false,
+    state: OverlayState,
     isLoadingAction: Boolean = false,
     actionResult: String? = null,
     pauseDurationMins: Int = 15,
@@ -38,7 +39,9 @@ fun OverlayScreen(
     onExpand: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
-    if (isSuccess) {
+    if (state is OverlayState.Hidden) return
+
+    if (state is OverlayState.IdleBubble) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -47,23 +50,20 @@ fun OverlayScreen(
         ) {
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(PastelColors.SuccessGreen)
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(PastelColors.CardBlue)
+                    .clickable { onExpand() },
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = PastelColors.TextMain, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Looks good!", color = PastelColors.TextMain, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                }
+                Text("G", color = PastelColors.TextMain, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp)
             }
         }
         return
     }
 
-    if (result == null) return
+    val result = if (state is OverlayState.GrammarSuggestion) state.result else null
+    if (result == null) return // Fallback for Phase 1 until we build full redesign
 
     var isExpanded by remember { mutableStateOf(false) }
 

@@ -34,13 +34,47 @@ class GrammarAccessibilityService : AccessibilityService() {
         grammarChecker = GrammarChecker(this)
         overlayManager = FloatingOverlayManager(this)
         database = GrammarDatabase.getDatabase(this)
+        
+        // Setup Overlay Callbacks
+        overlayManager.onApplyFix = { fixedText ->
+            replaceTextInFocusedField(fixedText)
+            overlayManager.hideOverlay()
+        }
+        
+        overlayManager.onAction = { actionType ->
+            serviceScope.launch {
+                withContext(Dispatchers.Main) { overlayManager.setActionLoading(true) }
+                // In Phase 1 we still just replace text immediately. 
+                // We will change this to preview in Phase 2.
+                val original = lastEditableNode?.text?.toString() ?: ""
+                val newText = grammarChecker.applyActionToSentence(original, actionType)
+                if (newText != null) {
+                    replaceTextInFocusedField(newText)
+                    withContext(Dispatchers.Main) { overlayManager.hideOverlay() }
+                } else {
+                    withContext(Dispatchers.Main) { overlayManager.setActionResult(null) }
+                }
+            }
+        }
+        
+        overlayManager.onExplain = {
+            // Need result mistakes, but for now we'll just show a generic explanation if triggered
+        }
+        
+        overlayManager.onPause = {
+            val prefs = getSharedPreferences("grammarlens_prefs", Context.MODE_PRIVATE)
+            val pauseMins = prefs.getInt("pause_duration_mins", 15)
+            val now = System.currentTimeMillis()
+            prefs.edit().putLong("pause_until", now + (pauseMins * 60 * 1000L)).apply()
+            overlayManager.hideOverlay()
+        }
+
         Log.d("GrammarLens", "Accessibility Service Connected")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val sharedPrefs = getSharedPreferences("grammarlens_prefs", Context.MODE_PRIVATE)
         if (!sharedPrefs.getBoolean("service_enabled", true)) return
-        
         if (System.currentTimeMillis() < sharedPrefs.getLong("pause_until", 0L)) return
 
         val packageName = event?.packageName?.toString() ?: ""
@@ -48,12 +82,33 @@ class GrammarAccessibilityService : AccessibilityService() {
         if (blacklistedApps.contains(packageName.lowercase())) return
 
         val type = event?.eventType ?: return
+
+        // Check if an editable field gained or lost focus
+        if (type == AccessibilityEvent.TYPE_VIEW_FOCUSED || type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            val node = event.source
+            if (node?.isEditable == true) {
+                lastEditableNode = node
+                // Show bubble if focus gained
+                CoroutineScope(Dispatchers.Main).launch {
+                    overlayManager.showIdleBubble()
+                }
+            } else if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+                // If window changed and not an editable node, probably lost focus
+                CoroutineScope(Dispatchers.Main).launch {
+                    overlayManager.hideOverlay()
+                }
+            }
+        }
+
         if (type != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
 
         // Save the editable node for later text replacement
         event.source?.let { node ->
             if (node.isEditable) {
                 lastEditableNode = node
+                CoroutineScope(Dispatchers.Main).launch {
+                    overlayManager.showIdleBubble()
+                }
             }
         }
 
@@ -118,41 +173,19 @@ class GrammarAccessibilityService : AccessibilityService() {
                     val prefs = getSharedPreferences("grammarlens_prefs", Context.MODE_PRIVATE)
                     val pauseMins = prefs.getInt("pause_duration_mins", 15)
                     
-                    overlayManager.showOverlay(
-                        result = result,
-                        pauseDurationMins = pauseMins,
-                        onApplyFix = { fixedText ->
-                            replaceTextInFocusedField(fixedText)
-                            overlayManager.hideOverlay()
-                        },
-                        onAction = { actionType ->
-                            serviceScope.launch {
-                                withContext(Dispatchers.Main) { overlayManager.setActionLoading(true) }
-                                val newText = grammarChecker.applyActionToSentence(sentence, actionType)
-                                if (newText != null) {
-                                    replaceTextInFocusedField(newText)
-                                    withContext(Dispatchers.Main) { overlayManager.hideOverlay() }
-                                } else {
-                                    withContext(Dispatchers.Main) { overlayManager.setActionResult(null) }
-                                }
+                    // Wire up explain properly using the current result
+                    overlayManager.onExplain = {
+                        serviceScope.launch {
+                            withContext(Dispatchers.Main) { overlayManager.setActionLoading(true) }
+                            val explanation = grammarChecker.explainMistake(sentence, result.mistakes)
+                            withContext(Dispatchers.Main) {
+                                overlayManager.setActionLoading(false)
+                                overlayManager.setActionResult(explanation ?: "Sorry, I couldn't explain this mistake right now.")
                             }
-                        },
-                        onExplain = {
-                            serviceScope.launch {
-                                withContext(Dispatchers.Main) { overlayManager.setActionLoading(true) }
-                                val explanation = grammarChecker.explainMistake(sentence, result.mistakes)
-                                withContext(Dispatchers.Main) {
-                                    overlayManager.setActionLoading(false)
-                                    overlayManager.setActionResult(explanation ?: "Sorry, I couldn't explain this mistake right now.")
-                                }
-                            }
-                        },
-                        onPause = {
-                            val now = System.currentTimeMillis()
-                            prefs.edit().putLong("pause_until", now + (pauseMins * 60 * 1000L)).apply()
-                            overlayManager.hideOverlay()
                         }
-                    )
+                    }
+
+                    overlayManager.showGrammarSuggestion(result, pauseMins)
                 }
             } else {
                 val entity = MistakeEntity(
