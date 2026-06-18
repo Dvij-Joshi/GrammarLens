@@ -37,9 +37,17 @@ class GrammarChecker(private val context: Context) {
             return@withContext null
         }
 
+        val ignoredWordsSet = sharedPrefs.getStringSet("ignored_words", emptySet()) ?: emptySet()
+        val ignoreInstruction = if (ignoredWordsSet.isNotEmpty()) {
+            "IMPORTANT: Ignore any perceived spelling or grammar errors related to these specific words/slang: ${ignoredWordsSet.joinToString(", ")}. Treat them as correct."
+        } else {
+            ""
+        }
+
         val prompt = """
             You are a strict, precise grammar checker.
             Analyze the following sentence for grammar, spelling, punctuation, and structure errors.
+            $ignoreInstruction
             Respond ONLY with a JSON object in this exact format, with no extra text:
             {
               "isGrammarCorrect": false,

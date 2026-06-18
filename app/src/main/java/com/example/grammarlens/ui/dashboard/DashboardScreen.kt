@@ -306,6 +306,14 @@ fun SettingsTab(
 
         item { ApiSettingsCard(currentApiKey, currentApiUrl, viewModel) }
         
+        item {
+            CustomDictionaryCard(
+                ignoredWords = viewModel.ignoredWords.collectAsState().value,
+                onAddWord = { viewModel.addIgnoredWord(it) },
+                onRemoveWord = { viewModel.removeIgnoredWord(it) }
+            )
+        }
+        
         item { Spacer(Modifier.height(32.dp)) }
     }
 }
@@ -763,6 +771,63 @@ fun NavIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String
             color = if (isSelected) PastelColors.TextMain else PastelColors.TextMain.copy(alpha = 0.4f),
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
         )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun CustomDictionaryCard(
+    ignoredWords: List<String>,
+    onAddWord: (String) -> Unit,
+    onRemoveWord: (String) -> Unit
+) {
+    var newWord by remember { mutableStateOf("") }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(32.dp))
+            .background(Color.White)
+            .padding(24.dp)
+    ) {
+        Column {
+            Text("Custom Dictionary", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = PastelColors.TextMain)
+            Spacer(Modifier.height(8.dp))
+            Text("Add words or slang that should be ignored by the grammar checker.", fontSize = 14.sp, color = PastelColors.TextMain.copy(alpha=0.6f))
+            Spacer(Modifier.height(16.dp))
+            
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = newWord, onValueChange = { newWord = it },
+                    modifier = Modifier.weight(1f), placeholder = { Text("Add word...") }, singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = Color(0xFFE2E8F0),
+                        focusedBorderColor = PastelColors.CardBlue
+                    )
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = { 
+                    if(newWord.isNotBlank()) { onAddWord(newWord); newWord = "" }
+                }, modifier = Modifier.size(48.dp).clip(CircleShape).background(PastelColors.CardBlue)) {
+                    Icon(Icons.Default.Add, contentDescription = "Add", tint = PastelColors.TextMain)
+                }
+            }
+            
+            if (ignoredWords.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ignoredWords.forEach { word ->
+                        Box(modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(PastelColors.Background).clickable { onRemoveWord(word) }.padding(horizontal=12.dp, vertical=6.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(word, fontSize = 13.sp, color = PastelColors.TextMain)
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp), tint = PastelColors.ButtonPink)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

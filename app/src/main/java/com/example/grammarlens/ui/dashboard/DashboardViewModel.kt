@@ -61,6 +61,27 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _pauseUntil = MutableStateFlow(sharedPrefs.getLong("pause_until", 0L))
     val pauseUntil: StateFlow<Long> = _pauseUntil.asStateFlow()
 
+    private val _ignoredWords = MutableStateFlow(
+        sharedPrefs.getStringSet("ignored_words", emptySet())?.toList()?.sorted() ?: emptyList()
+    )
+    val ignoredWords: StateFlow<List<String>> = _ignoredWords.asStateFlow()
+
+    fun addIgnoredWord(word: String) {
+        val currentSet = sharedPrefs.getStringSet("ignored_words", emptySet())?.toMutableSet() ?: mutableSetOf()
+        if (currentSet.add(word.trim().lowercase())) {
+            sharedPrefs.edit().putStringSet("ignored_words", currentSet).apply()
+            _ignoredWords.value = currentSet.toList().sorted()
+        }
+    }
+
+    fun removeIgnoredWord(word: String) {
+        val currentSet = sharedPrefs.getStringSet("ignored_words", emptySet())?.toMutableSet() ?: mutableSetOf()
+        if (currentSet.remove(word.trim().lowercase())) {
+            sharedPrefs.edit().putStringSet("ignored_words", currentSet).apply()
+            _ignoredWords.value = currentSet.toList().sorted()
+        }
+    }
+
     fun toggleServiceEnabled(enabled: Boolean) {
         sharedPrefs.edit().putBoolean("service_enabled", enabled).apply()
         _isServiceEnabled.value = enabled
