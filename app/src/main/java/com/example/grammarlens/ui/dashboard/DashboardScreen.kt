@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.grammarlens.data.database.MistakeEntity
 import com.example.grammarlens.ui.components.PastelColors
@@ -325,6 +326,7 @@ fun SettingsTab(
         item {
             AppBlacklistCard(
                 blacklistedApps = viewModel.blacklistedApps.collectAsState().value,
+                installedApps = viewModel.installedApps.collectAsState().value,
                 onAddApp = { viewModel.addBlacklistedApp(it) },
                 onRemoveApp = { viewModel.removeBlacklistedApp(it) }
             )
@@ -936,10 +938,12 @@ fun LanguageSelectionCard(
 @Composable
 fun AppBlacklistCard(
     blacklistedApps: List<String>,
+    installedApps: List<DashboardViewModel.AppInfo>,
     onAddApp: (String) -> Unit,
     onRemoveApp: (String) -> Unit
 ) {
-    var newApp by remember { mutableStateOf("") }
+    var showAppPicker by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -950,38 +954,85 @@ fun AppBlacklistCard(
         Column {
             Text("App Blacklist", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = PastelColors.TextMain)
             Spacer(Modifier.height(8.dp))
-            Text("GrammarLens will NOT check your text when typing in these apps. Enter the exact package name (e.g. com.whatsapp).", fontSize = 14.sp, color = PastelColors.TextMain.copy(alpha=0.6f))
+            Text("GrammarLens will NOT check your text when typing in these apps.", fontSize = 14.sp, color = PastelColors.TextMain.copy(alpha=0.6f))
             Spacer(Modifier.height(16.dp))
             
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = newApp, onValueChange = { newApp = it },
-                    modifier = Modifier.weight(1f), placeholder = { Text("Package name...") }, singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = Color(0xFFE2E8F0),
-                        focusedBorderColor = PastelColors.CardBlue
-                    )
-                )
+            Button(
+                onClick = { showAppPicker = true },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PastelColors.CardBlue),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add", tint = Color.White)
                 Spacer(Modifier.width(8.dp))
-                IconButton(onClick = { 
-                    if(newApp.isNotBlank()) { onAddApp(newApp); newApp = "" }
-                }, modifier = Modifier.size(48.dp).clip(CircleShape).background(PastelColors.CardBlue)) {
-                    Icon(Icons.Default.Add, contentDescription = "Add", tint = PastelColors.TextMain)
-                }
+                Text("Select Apps to Blacklist", color = Color.White, fontWeight = FontWeight.Bold)
             }
             
             if (blacklistedApps.isNotEmpty()) {
                 Spacer(Modifier.height(16.dp))
                 FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     blacklistedApps.forEach { app ->
+                        val appName = installedApps.find { it.packageName == app }?.name ?: app
                         Box(modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(PastelColors.Background).clickable { onRemoveApp(app) }.padding(horizontal=12.dp, vertical=6.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(app, fontSize = 13.sp, color = PastelColors.TextMain)
+                                Text(appName, fontSize = 13.sp, color = PastelColors.TextMain)
                                 Spacer(Modifier.width(4.dp))
                                 Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp), tint = PastelColors.ButtonPink)
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAppPicker) {
+        Dialog(onDismissRequest = { showAppPicker = false }) {
+            var searchQuery by remember { mutableStateOf("") }
+            val filteredApps = installedApps.filter { 
+                it.name.contains(searchQuery, ignoreCase = true) || 
+                it.packageName.contains(searchQuery, ignoreCase = true)
+            }
+
+            Box(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.8f).clip(RoundedCornerShape(24.dp)).background(Color.White).padding(16.dp)) {
+                Column {
+                    Text("Select App", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = PastelColors.TextMain)
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Search apps...") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = Color(0xFFE2E8F0),
+                            focusedBorderColor = PastelColors.CardBlue
+                        )
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        items(filteredApps) { app ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onAddApp(app.packageName)
+                                        showAppPicker = false
+                                    }
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(app.name, fontWeight = FontWeight.Bold, color = PastelColors.TextMain)
+                                    Text(app.packageName, fontSize = 12.sp, color = PastelColors.TextMain.copy(alpha=0.6f))
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    TextButton(onClick = { showAppPicker = false }, modifier = Modifier.align(Alignment.End)) {
+                        Text("Cancel", color = PastelColors.CardBlue)
                     }
                 }
             }

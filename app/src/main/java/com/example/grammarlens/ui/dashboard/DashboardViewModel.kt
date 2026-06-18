@@ -79,6 +79,29 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     )
     val blacklistedApps: StateFlow<List<String>> = _blacklistedApps.asStateFlow()
 
+    data class AppInfo(val name: String, val packageName: String)
+
+    private val _installedApps = MutableStateFlow<List<AppInfo>>(emptyList())
+    val installedApps: StateFlow<List<AppInfo>> = _installedApps.asStateFlow()
+
+    init {
+        loadInstalledApps()
+    }
+
+    private fun loadInstalledApps() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val pm = getApplication<Application>().packageManager
+            val intent = android.content.Intent(android.content.Intent.ACTION_MAIN, null).apply {
+                addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+            }
+            val apps = pm.queryIntentActivities(intent, 0)
+                .map { AppInfo(it.loadLabel(pm).toString(), it.activityInfo.packageName) }
+                .distinctBy { it.packageName }
+                .sortedBy { it.name }
+            _installedApps.value = apps
+        }
+    }
+
     fun addIgnoredWord(word: String) {
         val currentSet = sharedPrefs.getStringSet("ignored_words", emptySet())?.toMutableSet() ?: mutableSetOf()
         if (currentSet.add(word.trim().lowercase())) {
