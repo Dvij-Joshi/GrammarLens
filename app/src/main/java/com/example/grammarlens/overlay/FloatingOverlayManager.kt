@@ -44,12 +44,15 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
     val overlayState = MutableStateFlow<OverlayState>(OverlayState.Hidden)
     val isLoadingAction = MutableStateFlow(false)
     val actionResult = MutableStateFlow<String?>(null)
+    
+    val chatHistory = MutableStateFlow<List<com.example.grammarlens.network.GroqMessage>>(emptyList())
 
     // Callbacks provided by the service
     var onApplyFix: ((String) -> Unit)? = null
     var onAction: ((String) -> Unit)? = null
     var onExplain: (() -> Unit)? = null
     var onPause: (() -> Unit)? = null
+    var onSendMessage: ((String) -> Unit)? = null
     var pauseDurationMins: Int = 15
 
     override val lifecycle: Lifecycle get() = lifecycleRegistry
@@ -131,9 +134,11 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                     val currentState by overlayState.collectAsState()
                     val loading by isLoadingAction.collectAsState()
                     val actResult by actionResult.collectAsState()
+                    val chatList by chatHistory.collectAsState()
 
                     OverlayScreen(
                         state = currentState,
+                        chatHistory = chatList,
                         isLoadingAction = loading,
                         actionResult = actResult,
                         pauseDurationMins = pauseDurationMins,
@@ -141,8 +146,10 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                         onAction = { onAction?.invoke(it) },
                         onExplain = { onExplain?.invoke() },
                         onPause = { onPause?.invoke() },
+                        onSendMessage = { onSendMessage?.invoke(it) },
                         onDismiss = { hideOverlay() },
-                        onExpand = { /* Track if we want to force open */ }
+                        onExpand = { /* Track if we want to force open */ },
+                        onOpenChat = { showChat() }
                     )
                 }
             }

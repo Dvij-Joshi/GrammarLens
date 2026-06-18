@@ -63,6 +63,30 @@ class GrammarAccessibilityService : AccessibilityService() {
                 }
             }
         }
+
+        overlayManager.onSendMessage = { userMessage ->
+            serviceScope.launch {
+                withContext(Dispatchers.Main) {
+                    val currentHistory = overlayManager.chatHistory.value.toMutableList()
+                    currentHistory.add(com.example.grammarlens.network.GroqMessage(role = "user", content = userMessage))
+                    overlayManager.chatHistory.value = currentHistory
+                    overlayManager.setActionLoading(true)
+                }
+
+                val reply = grammarChecker.chatWithAssistant(overlayManager.chatHistory.value)
+
+                withContext(Dispatchers.Main) {
+                    overlayManager.setActionLoading(false)
+                    if (reply != null) {
+                        val currentHistory = overlayManager.chatHistory.value.toMutableList()
+                        currentHistory.add(com.example.grammarlens.network.GroqMessage(role = "assistant", content = reply))
+                        overlayManager.chatHistory.value = currentHistory
+                    } else {
+                        overlayManager.setActionResult("Network error. Could not reach assistant.")
+                    }
+                }
+            }
+        }
         
         overlayManager.onExplain = {
             // Need result mistakes, but for now we'll just show a generic explanation if triggered

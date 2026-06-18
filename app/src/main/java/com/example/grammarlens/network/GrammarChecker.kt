@@ -157,4 +157,32 @@ class GrammarChecker(private val context: Context) {
             null
         }
     }
+
+    suspend fun chatWithAssistant(conversation: List<GroqMessage>): String? = withContext(Dispatchers.IO) {
+        val sharedPrefs = context.getSharedPreferences("grammarlens_prefs", Context.MODE_PRIVATE)
+        val savedKey = sharedPrefs.getString("groq_api_key", "") ?: ""
+        val apiKey = savedKey.ifEmpty { BuildConfig.GROQ_API_KEY }
+        val apiUrl = sharedPrefs.getString("groq_api_url", "https://api.groq.com/openai/v1/") ?: "https://api.groq.com/openai/v1/"
+
+        if (apiKey.isEmpty()) return@withContext null
+
+        val messages = mutableListOf(
+            GroqMessage(role = "system", content = "You are GrammarLens, a helpful AI writing assistant embedded in a mobile keyboard. Keep responses very concise and helpful.")
+        )
+        messages.addAll(conversation)
+
+        val request = GroqRequest(
+            messages = messages,
+            responseFormat = ResponseFormat(type = "text")
+        )
+
+        try {
+            val service = getApiService(apiUrl)
+            val response = service.checkGrammar(authHeader = "Bearer $apiKey", request = request)
+            response.choices.firstOrNull()?.message?.content?.trim()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
 }

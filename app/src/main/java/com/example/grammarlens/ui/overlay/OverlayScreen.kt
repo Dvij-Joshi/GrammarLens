@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -27,9 +28,12 @@ import com.example.grammarlens.network.GrammarCheckResult
 import com.example.grammarlens.ui.components.PastelColors
 import com.example.grammarlens.overlay.OverlayState
 
+import com.example.grammarlens.network.GroqMessage
+
 @Composable
 fun OverlayScreen(
     state: OverlayState,
+    chatHistory: List<GroqMessage> = emptyList(),
     isLoadingAction: Boolean = false,
     actionResult: String? = null,
     pauseDurationMins: Int = 15,
@@ -37,7 +41,9 @@ fun OverlayScreen(
     onAction: (String) -> Unit = {},
     onExplain: () -> Unit = {},
     onPause: () -> Unit = {},
+    onSendMessage: (String) -> Unit = {},
     onExpand: () -> Unit = {},
+    onOpenChat: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     if (state is OverlayState.Hidden) return
@@ -98,7 +104,7 @@ fun OverlayScreen(
                             )
                         }
                         Row {
-                            IconButton(onClick = { /* Go to Chat - Phase 3 */ }, modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha=0.3f))) {
+                            IconButton(onClick = onOpenChat, modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha=0.3f))) {
                                 Icon(Icons.Default.Face, contentDescription = "Chat", tint = PastelColors.TextMain, modifier = Modifier.size(16.dp))
                             }
                             Spacer(Modifier.width(8.dp))
@@ -225,9 +231,71 @@ fun OverlayScreen(
                             }
                         }
                         
-                        else -> {
-                            // Chat mode will go here
+                        is OverlayState.Chat -> {
+                            var textInput by remember { mutableStateOf("") }
+                            
+                            Text("Assistant", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = PastelColors.TextMain)
+                            Spacer(Modifier.height(12.dp))
+                            
+                            // Chat History
+                            Box(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp).clip(RoundedCornerShape(16.dp)).background(Color.White).padding(8.dp)) {
+                                Column(modifier = Modifier.verticalScroll(rememberScrollState()).fillMaxWidth()) {
+                                    chatHistory.forEach { msg ->
+                                        if (msg.role != "system") {
+                                            val isUser = msg.role == "user"
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 4.dp),
+                                                contentAlignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(12.dp))
+                                                        .background(if (isUser) PastelColors.CardBlue else PastelColors.CardPink)
+                                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                                ) {
+                                                    Text(msg.content, color = PastelColors.TextMain, fontSize = 13.sp)
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if (isLoadingAction) {
+                                        Text("typing...", fontSize = 11.sp, color = PastelColors.TextMain.copy(alpha=0.5f), modifier = Modifier.padding(4.dp))
+                                    }
+                                }
+                            }
+                            
+                            Spacer(Modifier.height(12.dp))
+                            
+                            // Input Box
+                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                TextField(
+                                    value = textInput,
+                                    onValueChange = { textInput = it },
+                                    modifier = Modifier.weight(1f).height(50.dp),
+                                    placeholder = { Text("Ask something...", fontSize = 13.sp) },
+                                    colors = TextFieldDefaults.colors(
+                                        focusedContainerColor = Color.White,
+                                        unfocusedContainerColor = Color.White,
+                                        focusedIndicatorColor = Color.Transparent,
+                                        unfocusedIndicatorColor = Color.Transparent
+                                    ),
+                                    shape = RoundedCornerShape(25.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Box(
+                                    modifier = Modifier.size(50.dp).clip(CircleShape).background(PastelColors.SuccessGreen).clickable(enabled = !isLoadingAction && textInput.isNotBlank()) {
+                                        onSendMessage(textInput)
+                                        textInput = ""
+                                    },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("->", color = PastelColors.TextMain, fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
+                        else -> {}
                     }
                 }
             }
