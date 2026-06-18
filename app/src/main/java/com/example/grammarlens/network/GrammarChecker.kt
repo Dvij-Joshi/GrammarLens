@@ -43,10 +43,11 @@ class GrammarChecker(private val context: Context) {
         } else {
             ""
         }
+        val language = sharedPrefs.getString("selected_language", "English") ?: "English"
 
         val prompt = """
-            You are a strict, precise grammar checker.
-            Analyze the following sentence for grammar, spelling, punctuation, and structure errors.
+            You are a strict, precise grammar checker for the $language language.
+            Analyze the following sentence for grammar, spelling, punctuation, and structure errors in $language.
             $ignoreInstruction
             Respond ONLY with a JSON object in this exact format, with no extra text:
             {

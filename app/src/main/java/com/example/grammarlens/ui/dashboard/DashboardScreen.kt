@@ -307,6 +307,13 @@ fun SettingsTab(
         item { ApiSettingsCard(currentApiKey, currentApiUrl, viewModel) }
         
         item {
+            LanguageSelectionCard(
+                selectedLanguage = viewModel.selectedLanguage.collectAsState().value,
+                onLanguageChange = { viewModel.setSelectedLanguage(it) }
+            )
+        }
+        
+        item {
             CustomDictionaryCard(
                 ignoredWords = viewModel.ignoredWords.collectAsState().value,
                 onAddWord = { viewModel.addIgnoredWord(it) },
@@ -824,6 +831,64 @@ fun CustomDictionaryCard(
                                 Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp), tint = PastelColors.ButtonPink)
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LanguageSelectionCard(
+    selectedLanguage: String,
+    onLanguageChange: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val languages = listOf("English", "Spanish", "French", "German", "Hindi", "Japanese", "Korean", "Mandarin")
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(32.dp))
+            .background(Color.White)
+            .padding(24.dp)
+    ) {
+        Column {
+            Text("Typing Language", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = PastelColors.TextMain)
+            Spacer(Modifier.height(8.dp))
+            Text("Select the language you are typing in so the grammar engine can provide accurate feedback.", fontSize = 14.sp, color = PastelColors.TextMain.copy(alpha=0.6f))
+            Spacer(Modifier.height(16.dp))
+
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded }
+            ) {
+                OutlinedTextField(
+                    value = selectedLanguage,
+                    onValueChange = {},
+                    readOnly = true,
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = Color(0xFFE2E8F0),
+                        focusedBorderColor = PastelColors.CardBlue
+                    ),
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.background(Color.White)
+                ) {
+                    languages.forEach { language ->
+                        DropdownMenuItem(
+                            text = { Text(language, color = PastelColors.TextMain) },
+                            onClick = {
+                                onLanguageChange(language)
+                                expanded = false
+                            }
+                        )
                     }
                 }
             }
