@@ -20,9 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.grammarlens.network.GrammarCheckResult
-import com.example.grammarlens.ui.components.NeuColors
-import com.example.grammarlens.ui.components.NeumorphicCard
-import com.example.grammarlens.ui.components.neumorphic
+import com.example.grammarlens.ui.components.PastelColors
 
 @Composable
 fun OverlayScreen(
@@ -44,17 +42,16 @@ fun OverlayScreen(
         ) {
             Box(
                 modifier = Modifier
-                    .neumorphic(cornerRadius = 24.dp, elevation = 4.dp)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(Color(0xFF38A169))
+                    .background(PastelColors.SuccessGreen)
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = PastelColors.TextMain, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Looks good!", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("Looks good!", color = PastelColors.TextMain, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
         }
@@ -66,7 +63,7 @@ fun OverlayScreen(
     var isExpanded by remember { mutableStateOf(false) }
 
     Box(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         contentAlignment = Alignment.BottomEnd
     ) {
         AnimatedVisibility(
@@ -81,9 +78,8 @@ fun OverlayScreen(
                 Box(
                     modifier = Modifier
                         .size(52.dp)
-                        .neumorphic(cornerRadius = 26.dp, elevation = 6.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFE53E3E))
+                        .background(PastelColors.ButtonPink)
                         .clickable {
                             isExpanded = true
                             onExpand()
@@ -93,23 +89,22 @@ fun OverlayScreen(
                     Icon(
                         Icons.Default.Warning,
                         contentDescription = "Grammar mistake",
-                        tint = Color.White,
+                        tint = PastelColors.TextMain,
                         modifier = Modifier.size(26.dp)
                     )
                 }
                 Box(
                     modifier = Modifier
-                        .size(18.dp)
+                        .size(20.dp)
                         .align(Alignment.TopEnd)
-                        .neumorphic(cornerRadius = 9.dp, elevation = 2.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFDD6B20)),
+                        .background(Color.White),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         "${result.mistakes.size}",
                         fontSize = 10.sp,
-                        color = Color.White,
+                        color = PastelColors.ButtonPink,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -124,121 +119,63 @@ fun OverlayScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .neumorphic(cornerRadius = 20.dp, elevation = 16.dp)
-                    .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
-                    .background(NeuColors.Background)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(PastelColors.CardBlue)
             ) {
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Column(modifier = Modifier.padding(20.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.Top
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Warning,
-                                contentDescription = null,
-                                tint = Color(0xFFE53E3E),
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "${result.mistakes.size} mistake${if (result.mistakes.size > 1) "s" else ""} found",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                color = Color(0xFFE53E3E)
+                                result.mistakes.firstOrNull()?.category ?: "Grammar Suggestion",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 20.sp,
+                                color = PastelColors.TextMain,
+                                lineHeight = 24.sp
                             )
                         }
                         IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                            Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = NeuColors.TextMain, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = PastelColors.TextMain.copy(alpha=0.6f), modifier = Modifier.size(20.dp))
                         }
                     }
 
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(16.dp))
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        result.mistakes.map { it.category }.distinct().take(3).forEach { cat ->
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(NeuColors.Primary.copy(alpha = 0.1f))
-                            ) {
-                                Text(
-                                    cat, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    fontSize = 11.sp, color = NeuColors.Primary
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    Text("Fix:", fontSize = 12.sp, color = NeuColors.TextMain.copy(alpha = 0.7f))
+                    Text(
+                        "Change to:",
+                        fontSize = 12.sp,
+                        color = PastelColors.TextMain.copy(alpha=0.6f)
+                    )
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         result.correctedText,
-                        fontWeight = FontWeight.SemiBold,
-                        color = NeuColors.TextMain,
-                        fontSize = 14.sp
+                        fontSize = 14.sp,
+                        color = PastelColors.TextMain,
+                        fontWeight = FontWeight.Medium
                     )
 
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(24.dp))
 
                     if (isLoadingAction) {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = NeuColors.Primary, trackColor = NeuColors.DarkShadow.copy(alpha = 0.2f))
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = PastelColors.SuccessGreen, trackColor = Color.White.copy(alpha = 0.5f))
                     } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(PastelColors.SuccessGreen)
+                                .clickable { onApplyFix(result.correctedText) }
+                                .padding(vertical = 14.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            NeuButton(
-                                text = "Vocab",
-                                onClick = { onAction("Improve Vocabulary") },
-                                modifier = Modifier.weight(1f)
-                            )
-
-                            NeuButton(
-                                text = "Formal",
-                                onClick = { onAction("Make Formal") },
-                                modifier = Modifier.weight(1f)
-                            )
-
-                            NeuButton(
-                                text = "Crisp",
-                                onClick = { onAction("Make Crisp & Educated") },
-                                modifier = Modifier.weight(1f)
-                            )
-
-                            NeuButton(
-                                text = "✓ Apply",
-                                onClick = { onApplyFix(result.correctedText) },
-                                modifier = Modifier.weight(1f),
-                                isPrimary = true
-                            )
+                            Text("Apply Correction ->", color = PastelColors.TextMain, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun NeuButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, isPrimary: Boolean = false) {
-    Box(
-        modifier = modifier
-            .neumorphic(cornerRadius = 8.dp, elevation = 4.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isPrimary) NeuColors.Primary else NeuColors.Background)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 8.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            fontSize = 11.sp,
-            maxLines = 1,
-            color = if (isPrimary) Color.White else NeuColors.TextMain,
-            fontWeight = if (isPrimary) FontWeight.Bold else FontWeight.Medium
-        )
     }
 }
