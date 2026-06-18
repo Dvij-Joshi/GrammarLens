@@ -44,14 +44,58 @@ fun DashboardScreen(
     val currentApiUrl by viewModel.apiUrl.collectAsState()
     val isServiceEnabled by viewModel.isServiceEnabled.collectAsState()
 
+    var currentTab by remember { mutableIntStateOf(0) }
+
     Scaffold(
         containerColor = PastelColors.Background,
-        bottomBar = { BottomNavBar() }
+        bottomBar = { BottomNavBar(currentTab = currentTab, onTabSelected = { currentTab = it }) }
     ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            when (currentTab) {
+                0 -> DashboardTab(
+                    isServiceEnabled = isServiceEnabled,
+                    hasPermissions = hasPermissions,
+                    trendData = trendData,
+                    categoryBreakdown = categoryBreakdown,
+                    currentApiKey = currentApiKey,
+                    currentApiUrl = currentApiUrl,
+                    viewModel = viewModel,
+                    onOpenSettings = onOpenSettings
+                )
+                1 -> ErrorsTab(
+                    categoryBreakdown = categoryBreakdown,
+                    onDeleteMistake = { viewModel.deleteMistake(it) }
+                )
+                // Tabs 2 and 3 (Settings/Profile) can be stubbed or fallback to Dashboard for now
+                else -> DashboardTab(
+                    isServiceEnabled = isServiceEnabled,
+                    hasPermissions = hasPermissions,
+                    trendData = trendData,
+                    categoryBreakdown = categoryBreakdown,
+                    currentApiKey = currentApiKey,
+                    currentApiUrl = currentApiUrl,
+                    viewModel = viewModel,
+                    onOpenSettings = onOpenSettings
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DashboardTab(
+    isServiceEnabled: Boolean,
+    hasPermissions: Boolean,
+    trendData: List<DailyTrend>,
+    categoryBreakdown: List<CategoryDetail>,
+    currentApiKey: String,
+    currentApiUrl: String,
+    viewModel: DashboardViewModel,
+    onOpenSettings: () -> Unit
+) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
                 .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
@@ -149,6 +193,119 @@ fun DashboardScreen(
             item { ApiSettingsCard(currentApiKey, currentApiUrl, viewModel) }
             
             item { Spacer(Modifier.height(32.dp)) }
+        }
+}
+
+@Composable
+fun ErrorsTab(
+    categoryBreakdown: List<CategoryDetail>,
+    onDeleteMistake: (Long) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item { Spacer(Modifier.height(8.dp)) }
+        
+        item {
+            Text(
+                "Your Errors",
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 28.sp,
+                color = PastelColors.TextMain
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Review your common mistakes by category",
+                fontSize = 14.sp,
+                color = PastelColors.TextMain.copy(alpha=0.6f)
+            )
+            Spacer(Modifier.height(16.dp))
+        }
+
+        if (categoryBreakdown.isEmpty()) {
+            item {
+                Text("No mistakes recorded yet. Keep typing!", color = PastelColors.TextMain.copy(alpha = 0.5f))
+            }
+        } else {
+            items(categoryBreakdown) { category ->
+                CategoryExpandableCard(category, onDelete = onDeleteMistake)
+            }
+        }
+        item { Spacer(Modifier.height(32.dp)) }
+    }
+}
+
+@Composable
+fun CategoryExpandableCard(detail: CategoryDetail, onDelete: (Long) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color.White)
+            .clickable { expanded = !expanded }
+            .padding(20.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(detail.category, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PastelColors.TextMain)
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("${String.format("%.1f", detail.percentage)}% of total (${detail.count})", fontSize = 13.sp, color = PastelColors.TextMain.copy(alpha = 0.7f))
+                        Spacer(Modifier.width(8.dp))
+                        
+                        when (detail.improvement) {
+                            ImprovementStatus.IMPROVING -> {
+                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Improving", tint = PastelColors.SuccessGreen, modifier = Modifier.size(16.dp))
+                            }
+                            ImprovementStatus.WORSENING -> {
+                                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Worsening", tint = PastelColors.ButtonPink, modifier = Modifier.size(16.dp))
+                            }
+                            else -> {}
+                        }
+                    }
+                }
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Expand",
+                    tint = PastelColors.TextMain.copy(alpha=0.5f)
+                )
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column(modifier = Modifier.padding(top = 16.dp)) {
+                    HorizontalDivider(color = PastelColors.Background, thickness = 2.dp)
+                    Spacer(Modifier.height(12.dp))
+                    
+                    detail.recentExamples.forEach { example ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("« ${example.originalText} »", color = PastelColors.TextMain.copy(alpha=0.8f), fontSize = 13.sp)
+                                Spacer(Modifier.height(4.dp))
+                                Row {
+                                    Icon(Icons.Default.CheckCircle, contentDescription=null, tint=PastelColors.SuccessGreen, modifier=Modifier.size(14.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("${example.correctedText}", color = PastelColors.TextMain, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            IconButton(onClick = { onDelete(example.id) }, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = PastelColors.ButtonPink)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -355,7 +512,7 @@ fun PermissionWarningCard(onOpenSettings: () -> Unit) {
 }
 
 @Composable
-fun BottomNavBar() {
+fun BottomNavBar(currentTab: Int, onTabSelected: (Int) -> Unit) {
     Surface(
         color = Color.White,
         shadowElevation = 16.dp,
@@ -365,17 +522,20 @@ fun BottomNavBar() {
             modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp, horizontal = 24.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            NavIcon(Icons.Default.Home, "Dashboard", isSelected = true)
-            NavIcon(Icons.Default.Warning, "Errors", isSelected = false)
-            NavIcon(Icons.Default.Settings, "Settings", isSelected = false)
-            NavIcon(Icons.Default.Person, "Profile", isSelected = false)
+            NavIcon(Icons.Default.Home, "Dashboard", isSelected = currentTab == 0) { onTabSelected(0) }
+            NavIcon(Icons.Default.Warning, "Errors", isSelected = currentTab == 1) { onTabSelected(1) }
+            NavIcon(Icons.Default.Settings, "Settings", isSelected = currentTab == 2) { onTabSelected(2) }
+            NavIcon(Icons.Default.Person, "Profile", isSelected = currentTab == 3) { onTabSelected(3) }
         }
     }
 }
 
 @Composable
-fun NavIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, isSelected: Boolean) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+fun NavIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, isSelected: Boolean, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
         Box(
             modifier = Modifier
                 .size(40.dp)
