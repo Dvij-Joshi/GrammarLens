@@ -45,9 +45,20 @@ fun DashboardScreen(
     val isServiceEnabled by viewModel.isServiceEnabled.collectAsState()
 
     var currentTab by remember { mutableIntStateOf(0) }
+    var showTestingSheet by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = PastelColors.Background,
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showTestingSheet = true },
+                containerColor = PastelColors.CardPurple,
+                contentColor = PastelColors.TextMain,
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(Icons.Default.Edit, contentDescription = "Test GrammarLens")
+            }
+        },
         bottomBar = { BottomNavBar(currentTab = currentTab, onTabSelected = { currentTab = it }) }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -82,6 +93,52 @@ fun DashboardScreen(
                     viewModel = viewModel,
                     onOpenSettings = onOpenSettings
                 )
+            }
+        }
+    }
+
+    if (showTestingSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showTestingSheet = false },
+            containerColor = PastelColors.Background
+        ) {
+            var testingText by remember { mutableStateOf("") }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                Text(
+                    "Test GrammarLens",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
+                    color = PastelColors.TextMain
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Type a sentence with some mistakes below. Our accessibility service will detect it and show the popup automatically!",
+                    fontSize = 14.sp,
+                    color = PastelColors.TextMain.copy(alpha=0.6f)
+                )
+                Spacer(Modifier.height(16.dp))
+                
+                OutlinedTextField(
+                    value = testingText,
+                    onValueChange = { testingText = it },
+                    modifier = Modifier.fillMaxWidth().height(150.dp),
+                    placeholder = { Text("e.g. He go to the store yesterday...", color = PastelColors.TextMain.copy(alpha=0.3f)) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedBorderColor = PastelColors.ToggleOn,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedTextColor = PastelColors.TextMain,
+                        unfocusedTextColor = PastelColors.TextMain
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                )
+                Spacer(Modifier.height(16.dp))
             }
         }
     }
