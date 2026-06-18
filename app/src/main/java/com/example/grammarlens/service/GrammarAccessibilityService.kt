@@ -41,18 +41,25 @@ class GrammarAccessibilityService : AccessibilityService() {
             overlayManager.hideOverlay()
         }
         
+        var lastToneAction = "Make Formal" // Track for Retry
+        
         overlayManager.onAction = { actionType ->
             serviceScope.launch {
                 withContext(Dispatchers.Main) { overlayManager.setActionLoading(true) }
-                // In Phase 1 we still just replace text immediately. 
-                // We will change this to preview in Phase 2.
+                
+                val actionToPerform = if (actionType == "Retry") lastToneAction else actionType
+                if (actionType != "Retry") lastToneAction = actionType
+
                 val original = lastEditableNode?.text?.toString() ?: ""
-                val newText = grammarChecker.applyActionToSentence(original, actionType)
-                if (newText != null) {
-                    replaceTextInFocusedField(newText)
-                    withContext(Dispatchers.Main) { overlayManager.hideOverlay() }
-                } else {
-                    withContext(Dispatchers.Main) { overlayManager.setActionResult(null) }
+                val newText = grammarChecker.applyActionToSentence(original, actionToPerform)
+                
+                withContext(Dispatchers.Main) { 
+                    overlayManager.setActionLoading(false)
+                    if (newText != null) {
+                        overlayManager.showRewritePreview(original, newText)
+                    } else {
+                        overlayManager.setActionResult("Failed to rewrite. Try again.")
+                    }
                 }
             }
         }
