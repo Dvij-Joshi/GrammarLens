@@ -3,6 +3,8 @@ package com.example.grammarlens.ui.overlay
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -165,6 +167,30 @@ fun OverlayScreen(
                         color = PastelColors.TextMain,
                         fontWeight = FontWeight.Medium
                     )
+
+                    Spacer(Modifier.height(16.dp))
+                    
+                    // Tone Adjustment Actions
+                    Text("Rewrite Tone:", fontSize = 12.sp, color = PastelColors.TextMain.copy(alpha=0.6f))
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("Improve Vocabulary", "Make Formal", "Make Crisp & Educated").forEach { action ->
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(PastelColors.CardBlue.copy(alpha=0.2f))
+                                    .clickable { onAction(action) }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Text(action, fontSize = 12.sp, color = PastelColors.CardBlue, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
 
                     Spacer(Modifier.height(24.dp))
 
