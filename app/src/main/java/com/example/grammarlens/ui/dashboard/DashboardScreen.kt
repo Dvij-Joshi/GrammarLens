@@ -239,7 +239,9 @@ fun PastelChartCard(trendData: List<DailyTrend>) {
             
             Spacer(Modifier.height(24.dp))
             
-            val fakeData = listOf(0.4f, 0.8f, 0.7f, 0.5f, 0.9f, 0.6f, 0.3f)
+            val last7 = trendData.takeLast(7)
+            val maxRate = last7.maxOfOrNull { it.mistakeRate }?.coerceAtLeast(0.1f) ?: 0.1f
+            
             val chartColors = listOf(
                 PastelColors.ChartPink,
                 PastelColors.ChartPink.copy(alpha=0.8f),
@@ -249,14 +251,20 @@ fun PastelChartCard(trendData: List<DailyTrend>) {
                 PastelColors.ChartGreen,
                 PastelColors.ToggleOn
             )
-            val days = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+            
+            val displayData = if (last7.isEmpty()) {
+                List(7) { 0f to "-" }
+            } else {
+                val padding = List(7 - last7.size) { 0f to "-" }
+                padding + last7.map { (it.mistakeRate / maxRate) to it.dateString.take(3) }
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth().height(120.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom
             ) {
-                fakeData.forEachIndexed { i, value ->
+                displayData.forEachIndexed { i, (value, dayLabel) ->
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Bottom,
@@ -271,7 +279,7 @@ fun PastelChartCard(trendData: List<DailyTrend>) {
                                 .background(chartColors[i % chartColors.size])
                         )
                         Spacer(Modifier.height(8.dp))
-                        Text(days[i], fontSize = 10.sp, color = PastelColors.TextMain.copy(alpha=0.5f))
+                        Text(dayLabel, fontSize = 10.sp, color = PastelColors.TextMain.copy(alpha=0.5f))
                     }
                 }
             }
