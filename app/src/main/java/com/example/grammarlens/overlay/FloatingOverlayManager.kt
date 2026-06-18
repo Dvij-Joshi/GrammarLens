@@ -148,7 +148,7 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                         onPause = { onPause?.invoke() },
                         onSendMessage = { onSendMessage?.invoke(it) },
                         onDismiss = { hideOverlay() },
-                        onExpand = { /* Track if we want to force open */ },
+                        onExpand = { showChat() },
                         onOpenChat = { showChat() }
                     )
                 }
