@@ -33,6 +33,7 @@ fun OverlayScreen(
     pauseDurationMins: Int = 15,
     onApplyFix: (String) -> Unit = {},
     onAction: (String) -> Unit = {},
+    onExplain: () -> Unit = {},
     onPause: () -> Unit = {},
     onExpand: () -> Unit = {},
     onDismiss: () -> Unit
@@ -140,13 +141,25 @@ fun OverlayScreen(
                         verticalAlignment = Alignment.Top
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                result.mistakes.firstOrNull()?.category ?: "Grammar Suggestion",
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 20.sp,
-                                color = PastelColors.TextMain,
-                                lineHeight = 24.sp
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    result.mistakes.firstOrNull()?.category ?: "Grammar Suggestion",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 20.sp,
+                                    color = PastelColors.TextMain,
+                                    lineHeight = 24.sp
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.White.copy(alpha=0.3f))
+                                        .clickable { onExplain() }
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text("Explain", fontSize = 10.sp, color = PastelColors.TextMain, fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
                         IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
                             Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = PastelColors.TextMain.copy(alpha=0.6f), modifier = Modifier.size(20.dp))
@@ -169,6 +182,19 @@ fun OverlayScreen(
                     )
 
                     Spacer(Modifier.height(16.dp))
+                    
+                    if (actionResult != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.White.copy(alpha=0.8f))
+                                .padding(12.dp)
+                        ) {
+                            Text(actionResult, fontSize = 13.sp, color = PastelColors.TextMain, lineHeight = 18.sp)
+                        }
+                        Spacer(Modifier.height(16.dp))
+                    }
                     
                     // Tone Adjustment Actions
                     Text("Rewrite Tone:", fontSize = 12.sp, color = PastelColors.TextMain.copy(alpha=0.6f))

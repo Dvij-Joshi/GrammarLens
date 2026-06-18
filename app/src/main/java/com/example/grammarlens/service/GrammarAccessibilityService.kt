@@ -133,6 +133,16 @@ class GrammarAccessibilityService : AccessibilityService() {
                                 }
                             }
                         },
+                        onExplain = {
+                            serviceScope.launch {
+                                withContext(Dispatchers.Main) { overlayManager.setActionLoading(true) }
+                                val explanation = grammarChecker.explainMistake(sentence, result.mistakes)
+                                withContext(Dispatchers.Main) {
+                                    overlayManager.setActionLoading(false)
+                                    overlayManager.setActionResult(explanation ?: "Sorry, I couldn't explain this mistake right now.")
+                                }
+                            }
+                        },
                         onPause = {
                             val now = System.currentTimeMillis()
                             prefs.edit().putLong("pause_until", now + (pauseMins * 60 * 1000L)).apply()

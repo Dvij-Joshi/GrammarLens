@@ -119,4 +119,33 @@ class GrammarChecker(private val context: Context) {
             null
         }
     }
+
+    suspend fun explainMistake(sentence: String, mistakes: List<MistakeDetail>): String? = withContext(Dispatchers.IO) {
+        val sharedPrefs = context.getSharedPreferences("grammarlens_prefs", Context.MODE_PRIVATE)
+        val savedKey = sharedPrefs.getString("groq_api_key", "") ?: ""
+        val apiKey = savedKey.ifEmpty { BuildConfig.GROQ_API_KEY }
+        val apiUrl = sharedPrefs.getString("groq_api_url", "https://api.groq.com/openai/v1/") ?: "https://api.groq.com/openai/v1/"
+
+        if (apiKey.isEmpty()) return@withContext null
+
+        val mistakesText = mistakes.joinToString("; ") { "'${it.mistake}' (${it.category})" }
+        val prompt = "Explain briefly why the grammar is wrong in this sentence: \"$sentence\". The specific mistakes are: $mistakesText. Keep the explanation to 1 or 2 short sentences, friendly and easy to understand."
+
+        val request = GroqRequest(
+            messages = listOf(
+                GroqMessage(role = "system", content = "You are a helpful grammar teacher."),
+                GroqMessage(role = "user", content = prompt)
+            ),
+            responseFormat = ResponseFormat(type = "text")
+        )
+
+        try {
+            val service = getApiService(apiUrl)
+            val response = service.checkGrammar(authHeader = "Bearer $apiKey", request = request)
+            response.choices.firstOrNull()?.message?.content?.trim()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
 }

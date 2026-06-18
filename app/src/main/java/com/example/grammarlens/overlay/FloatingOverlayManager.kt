@@ -52,6 +52,7 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
         pauseDurationMins: Int,
         onApplyFix: (String) -> Unit = {},
         onAction: (String) -> Unit,
+        onExplain: () -> Unit = {},
         onPause: () -> Unit
     ) {
         if (!Settings.canDrawOverlays(context)) return
@@ -74,6 +75,7 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                     pauseDurationMins = pauseDurationMins,
                     onApplyFix = onApplyFix,
                     onAction = onAction,
+                    onExplain = onExplain,
                     onPause = onPause,
                     onDismiss = { hideOverlay() }
                 )
