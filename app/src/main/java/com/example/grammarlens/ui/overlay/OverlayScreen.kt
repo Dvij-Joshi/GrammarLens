@@ -62,6 +62,13 @@ fun OverlayScreen(
 
     var isExpanded by remember { mutableStateOf(false) }
 
+    LaunchedEffect(result, isExpanded) {
+        if (!isExpanded) {
+            kotlinx.coroutines.delay(3000)
+            onDismiss()
+        }
+    }
+
     Box(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         contentAlignment = Alignment.BottomEnd
