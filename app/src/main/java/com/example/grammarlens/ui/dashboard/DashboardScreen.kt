@@ -640,16 +640,28 @@ fun ApiSettingsCard(currentApiKey: String, currentApiUrl: String, viewModel: Das
                     .background(PastelColors.Background)
                     .padding(12.dp)
             ) {
-                Text(
-                    "How to get a free API key:\n" +
-                    "1. Visit console.groq.com\n" +
-                    "2. Log in or create an account\n" +
-                    "3. Go to 'API Keys' in the menu\n" +
-                    "4. Create a new key and paste it below", 
-                    fontSize = 12.sp, 
-                    color = PastelColors.TextMain.copy(alpha=0.7f),
-                    lineHeight = 18.sp
-                )
+                val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+                Column {
+                    Text("How to get a free API key:", fontSize = 12.sp, color = PastelColors.TextMain.copy(alpha=0.7f), lineHeight = 18.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("1. Visit ", fontSize = 12.sp, color = PastelColors.TextMain.copy(alpha=0.7f), lineHeight = 18.sp)
+                        Text(
+                            "console.groq.com", 
+                            fontSize = 12.sp, 
+                            color = PastelColors.CardBlue, 
+                            fontWeight = FontWeight.Bold, 
+                            modifier = Modifier.clickable { uriHandler.openUri("https://console.groq.com") }
+                        )
+                    }
+                    Text(
+                        "2. Log in or create an account\n" +
+                        "3. Go to 'API Keys' in the menu\n" +
+                        "4. Create a new key and paste it below", 
+                        fontSize = 12.sp, 
+                        color = PastelColors.TextMain.copy(alpha=0.7f),
+                        lineHeight = 18.sp
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(16.dp))
