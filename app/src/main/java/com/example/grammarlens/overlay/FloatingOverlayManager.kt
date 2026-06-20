@@ -77,8 +77,14 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
 
     fun showGrammarSuggestion(result: GrammarCheckResult, pauseMins: Int) {
         pauseDurationMins = pauseMins
-        actionResult.value = null // Clear any previous explain text
-        updateState(OverlayState.GrammarSuggestion(result))
+        actionResult.value = null
+        lastGrammarResult = result
+        // Turn bubble RED to alert user — they click to open correction popup
+        when (overlayState.value) {
+            is OverlayState.Hidden, is OverlayState.IdleBubble ->
+                updateState(OverlayState.IdleBubble(hasError = true))
+            else -> {} // Don't override an already-open popup
+        }
     }
 
     fun showRewritePreview(originalText: String, newText: String) {
@@ -99,7 +105,7 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
     }
 
     fun showSuccessOverlay() {
-        // Don't show anything for correct text - just keep idle bubble
+        lastGrammarResult = null  // No errors — clear cached result
         updateState(OverlayState.IdleBubble(hasError = false))
     }
 
@@ -114,6 +120,7 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
     }
 
     fun hideOverlay() {
+        lastGrammarResult = null  // Clear cached error on explicit dismiss
         updateState(OverlayState.Hidden)
     }
 
@@ -157,7 +164,15 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                         onSendMessage = { onSendMessage?.invoke(it) },
                         onBack = { backFromChat() },
                         onDismiss = { hideOverlay() },
-                        onExpand = { showChat() },
+                        onExpand = {
+                            // Red bubble clicked: open the correction popup if available, else chat
+                            val result = lastGrammarResult
+                            if (result != null) {
+                                updateState(OverlayState.GrammarSuggestion(result))
+                            } else {
+                                showChat()
+                            }
+                        },
                         onOpenChat = { showChat() }
                     )
                 }
@@ -186,15 +201,20 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
         } else {
             val layoutParams = composeView?.layoutParams as? WindowManager.LayoutParams
             if (layoutParams != null) {
-                if (newState is OverlayState.Chat) {
-                    // Allow keyboard focus for typing in chat
-                    layoutParams.flags = layoutParams.flags and
-                            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
-                } else {
-                    layoutParams.flags = layoutParams.flags or
-                            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                val isCurrFocusable = (layoutParams.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) == 0
+                val shouldBeFocusable = newState is OverlayState.Chat
+                // Only update window layout when the focusable flag actually needs to change
+                // (avoids unnecessary updateViewLayout that can cause keyboard to dismiss)
+                if (isCurrFocusable != shouldBeFocusable) {
+                    if (shouldBeFocusable) {
+                        layoutParams.flags = layoutParams.flags and
+                                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+                    } else {
+                        layoutParams.flags = layoutParams.flags or
+                                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                    }
+                    windowManager.updateViewLayout(composeView, layoutParams)
                 }
-                windowManager.updateViewLayout(composeView, layoutParams)
             }
         }
     }
