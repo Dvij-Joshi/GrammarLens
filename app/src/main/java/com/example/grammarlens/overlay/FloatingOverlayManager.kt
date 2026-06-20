@@ -60,6 +60,9 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
     /** Called from the chat TextField when user taps it — makes window keyboard-focusable. */
     var onRequestKeyboardFocus: (() -> Unit)? = null
 
+    private var bubbleOffsetX = 0
+    private var bubbleOffsetY = 0
+
     override val lifecycle: Lifecycle get() = lifecycleRegistry
     override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
 
@@ -185,7 +188,8 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                             }
                         },
                         onOpenChat = { showChat() },
-                        onRequestKeyboardFocus = { makeWindowFocusable() }
+                        onRequestKeyboardFocus = { makeWindowFocusable() },
+                        onDrag = { dx, dy -> handleDrag(dx, dy) }
                     )
                 }
             }
@@ -206,7 +210,14 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                     Gravity.BOTTOM or Gravity.END   // Bubble: anchor bottom-right
                 else
                     Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL  // Card: full-width centered
-                y = currentImeHeight
+                
+                if (newState is OverlayState.IdleBubble) {
+                    x = bubbleOffsetX
+                    y = currentImeHeight + bubbleOffsetY
+                } else {
+                    x = 0
+                    y = currentImeHeight
+                }
             }
 
             windowManager.addView(composeView, layoutParams)
@@ -235,6 +246,16 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                 if (widthChanged || gravityChanged) {
                     layoutParams.width = newWidth
                     layoutParams.gravity = newGravity
+                    
+                    // Apply offsets if returning to IdleBubble
+                    if (newState is OverlayState.IdleBubble) {
+                        layoutParams.x = bubbleOffsetX
+                        layoutParams.y = currentImeHeight + bubbleOffsetY
+                    } else {
+                        layoutParams.x = 0
+                        layoutParams.y = currentImeHeight
+                    }
+
                     try { windowManager.updateViewLayout(composeView, layoutParams) } catch (e: Exception) {}
                 }
             }
@@ -257,13 +278,30 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
     fun updateBottomOffset(offsetPx: Int) {
         currentImeHeight = offsetPx
         val view = composeView ?: return
-        if (!view.isAttachedToWindow) {
-            // View not yet attached — will be picked up by post() after addView
-            return
-        }
+        if (!view.isAttachedToWindow) return
         val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
-        if (lp.y != offsetPx) {
+        
+        if (overlayState.value is OverlayState.IdleBubble) {
+            lp.y = offsetPx + bubbleOffsetY
+        } else {
             lp.y = offsetPx
+        }
+        
+        try { windowManager.updateViewLayout(view, lp) } catch (e: Exception) {}
+    }
+
+    fun handleDrag(dx: Float, dy: Float) {
+        // Gravity is BOTTOM|END, so:
+        // dx > 0 (drag right) means distance from END edge decreases -> subtract dx
+        // dy > 0 (drag down) means distance from BOTTOM edge decreases -> subtract dy
+        bubbleOffsetX -= dx.toInt()
+        bubbleOffsetY -= dy.toInt()
+        
+        val view = composeView ?: return
+        val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
+        if (overlayState.value is OverlayState.IdleBubble) {
+            lp.x = bubbleOffsetX
+            lp.y = currentImeHeight + bubbleOffsetY
             try { windowManager.updateViewLayout(view, lp) } catch (e: Exception) {}
         }
     }

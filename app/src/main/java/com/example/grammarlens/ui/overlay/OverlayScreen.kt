@@ -7,6 +7,7 @@ import android.view.inputmethod.InputMethodManager
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -30,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
@@ -56,7 +58,8 @@ fun OverlayScreen(
     onBack: () -> Unit = {},
     onExpand: () -> Unit = {},
     onOpenChat: () -> Unit = {},
-    onRequestKeyboardFocus: () -> Unit = {},  // Called when user taps chat input
+    onRequestKeyboardFocus: () -> Unit = {},
+    onDrag: (Float, Float) -> Unit = { _, _ -> },  // dx, dy in px — bubble drag
     onDismiss: () -> Unit
 ) {
     if (state is OverlayState.Hidden) return
@@ -65,12 +68,19 @@ fun OverlayScreen(
 
     if (state is OverlayState.IdleBubble) {
         val hasError = state.hasError
+        // Outer Box: handles drag gesture and routes dx/dy to window-level repositioning
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(end = 16.dp, bottom = 16.dp),
-            contentAlignment = Alignment.BottomEnd
+                .wrapContentSize()
+                .padding(8.dp)
+                .pointerInput(Unit) {
+                    detectDragGestures { change, dragAmount ->
+                        change.consume()
+                        onDrag(dragAmount.x, dragAmount.y)
+                    }
+                }
         ) {
+            // Inner circle: handles tap-to-expand
             Box(
                 modifier = Modifier
                     .size(56.dp)

@@ -239,7 +239,10 @@ class GrammarAccessibilityService : AccessibilityService() {
                     isCorrect = true
                 )
                 database.mistakeDao().insertMistake(entity)
-                // Text is correct - keep idle bubble as normal (no error color)
+                
+                withContext(Dispatchers.Main) {
+                    overlayManager.showSuccessOverlay()
+                }
             }
         }
     }
