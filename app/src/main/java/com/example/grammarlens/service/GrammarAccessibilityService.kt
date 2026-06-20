@@ -110,42 +110,36 @@ class GrammarAccessibilityService : AccessibilityService() {
         if (System.currentTimeMillis() < sharedPrefs.getLong("pause_until", 0L)) return
 
         val packageName = event?.packageName?.toString() ?: ""
-        if (packageName == this.packageName) return // Ignore events from our own app (Issue 3 fix)
-        
+        if (packageName == this.packageName) return // Ignore events from our own app
+
         val blacklistedApps = sharedPrefs.getStringSet("blacklisted_apps", emptySet()) ?: emptySet()
         if (blacklistedApps.contains(packageName.lowercase())) return
 
         val type = event?.eventType ?: return
 
-        // Check if keyboard is visible
-        val isKeyboardVisible = try {
-            windows?.any { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD } ?: false
-        } catch (e: Exception) { false }
-
-        if (!isKeyboardVisible && overlayManager.overlayState.value is OverlayState.IdleBubble) {
-            CoroutineScope(Dispatchers.Main).launch {
-                overlayManager.hideOverlay()
-            }
-        }
-
-        // Check if an editable field gained or lost focus
+        // Handle focus/window events for keyboard detection only
         if (type == AccessibilityEvent.TYPE_VIEW_FOCUSED || type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             val node = event.source
             if (node?.isEditable == true) {
                 lastEditableNode = node
-                // Show bubble if focus gained and keyboard is visible
-                if (isKeyboardVisible) {
-                    CoroutineScope(Dispatchers.Main).launch {
-                        overlayManager.showIdleBubble()
-                    }
+                // Keyboard is open if we got a focus event on an editable field
+                CoroutineScope(Dispatchers.Main).launch {
+                    overlayManager.showIdleBubble()
                 }
             } else if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+                // Window changed to non-editable: check keyboard state
+                val isKeyboardVisible = try {
+                    windows?.any { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD } ?: false
+                } catch (e: Exception) { false }
+
+                // Only hide the bubble — never kill an active grammar suggestion
                 if (!isKeyboardVisible && overlayManager.overlayState.value is OverlayState.IdleBubble) {
                     CoroutineScope(Dispatchers.Main).launch {
                         overlayManager.hideOverlay()
                     }
                 }
             }
+            return // Don't process text changes for focus events
         }
 
         if (type != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
