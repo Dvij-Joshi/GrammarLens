@@ -166,6 +166,7 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
             }
 
             windowManager.addView(composeView, layoutParams)

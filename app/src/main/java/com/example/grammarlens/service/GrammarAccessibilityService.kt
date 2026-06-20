@@ -10,6 +10,7 @@ import com.example.grammarlens.data.database.GrammarDatabase
 import com.example.grammarlens.data.database.MistakeEntity
 import com.example.grammarlens.network.GrammarChecker
 import com.example.grammarlens.overlay.FloatingOverlayManager
+import com.example.grammarlens.overlay.OverlayState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -109,24 +110,40 @@ class GrammarAccessibilityService : AccessibilityService() {
         if (System.currentTimeMillis() < sharedPrefs.getLong("pause_until", 0L)) return
 
         val packageName = event?.packageName?.toString() ?: ""
+        if (packageName == this.packageName) return // Ignore events from our own app (Issue 3 fix)
+        
         val blacklistedApps = sharedPrefs.getStringSet("blacklisted_apps", emptySet()) ?: emptySet()
         if (blacklistedApps.contains(packageName.lowercase())) return
 
         val type = event?.eventType ?: return
+
+        // Check if keyboard is visible
+        val isKeyboardVisible = try {
+            windows?.any { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD } ?: false
+        } catch (e: Exception) { false }
+
+        if (!isKeyboardVisible && overlayManager.overlayState.value is OverlayState.IdleBubble) {
+            CoroutineScope(Dispatchers.Main).launch {
+                overlayManager.hideOverlay()
+            }
+        }
 
         // Check if an editable field gained or lost focus
         if (type == AccessibilityEvent.TYPE_VIEW_FOCUSED || type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             val node = event.source
             if (node?.isEditable == true) {
                 lastEditableNode = node
-                // Show bubble if focus gained
-                CoroutineScope(Dispatchers.Main).launch {
-                    overlayManager.showIdleBubble()
+                // Show bubble if focus gained and keyboard is visible
+                if (isKeyboardVisible) {
+                    CoroutineScope(Dispatchers.Main).launch {
+                        overlayManager.showIdleBubble()
+                    }
                 }
             } else if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-                // If window changed and not an editable node, probably lost focus
-                CoroutineScope(Dispatchers.Main).launch {
-                    overlayManager.hideOverlay()
+                if (!isKeyboardVisible && overlayManager.overlayState.value is OverlayState.IdleBubble) {
+                    CoroutineScope(Dispatchers.Main).launch {
+                        overlayManager.hideOverlay()
+                    }
                 }
             }
         }
