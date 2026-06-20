@@ -5,6 +5,7 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.provider.Settings
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -157,6 +158,21 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
 
         if (wasHidden) {
             composeView = ComposeView(context).apply {
+                setOnTouchListener { _, ev ->
+                    if (ev.action == MotionEvent.ACTION_OUTSIDE) {
+                        val state = overlayState.value
+                        if (state !is OverlayState.IdleBubble && state !is OverlayState.Hidden) {
+                            // Close popup. Keep bubble red if there is an active uncorrected error.
+                            val hasErr = lastGrammarResult?.isGrammarCorrect == false
+                            updateState(OverlayState.IdleBubble(hasError = hasErr))
+                            true
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                }
                 setViewTreeLifecycleOwner(this@FloatingOverlayManager)
                 setViewTreeSavedStateRegistryOwner(this@FloatingOverlayManager)
                 setContent {
@@ -203,7 +219,8 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                 else
                     @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                        WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = if (newState is OverlayState.IdleBubble)
