@@ -79,6 +79,7 @@ fun DashboardScreen(
                     onResume = { viewModel.setPauseUntil(0L) }
                 )
                 1 -> ErrorsTab(
+                    trendData = trendData,
                     categoryBreakdown = categoryBreakdown,
                     onDeleteMistake = { viewModel.deleteMistake(it) }
                 )
@@ -508,6 +509,7 @@ fun PauseConfigurationCard(
 
 @Composable
 fun ErrorsTab(
+    trendData: List<DailyTrend>,
     categoryBreakdown: List<CategoryDetail>,
     onDeleteMistake: (Long) -> Unit
 ) {
