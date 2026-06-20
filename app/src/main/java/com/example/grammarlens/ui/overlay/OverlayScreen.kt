@@ -1,5 +1,8 @@
 package com.example.grammarlens.ui.overlay
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -11,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Close
@@ -21,13 +25,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.grammarlens.network.GrammarCheckResult
 import com.example.grammarlens.ui.components.PastelColors
 import com.example.grammarlens.overlay.OverlayState
-
 import com.example.grammarlens.network.GroqMessage
 
 @Composable
@@ -42,13 +46,17 @@ fun OverlayScreen(
     onExplain: () -> Unit = {},
     onPause: () -> Unit = {},
     onSendMessage: (String) -> Unit = {},
+    onBack: () -> Unit = {},
     onExpand: () -> Unit = {},
     onOpenChat: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     if (state is OverlayState.Hidden) return
 
+    val context = LocalContext.current
+
     if (state is OverlayState.IdleBubble) {
+        val hasError = state.hasError
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -59,12 +67,17 @@ fun OverlayScreen(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(PastelColors.CardBlue)
+                    .background(if (hasError) Color(0xFFFF6B6B) else PastelColors.CardBlue)
                     .border(2.dp, Color.White, CircleShape)
                     .clickable { onExpand() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Edit, contentDescription = "GrammarLens", tint = PastelColors.TextMain, modifier = Modifier.size(28.dp))
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "GrammarLens",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
             }
         }
         return
@@ -84,7 +97,7 @@ fun OverlayScreen(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(32.dp))
                     .background(PastelColors.CardPurple)
-                    .border(1.dp, Color.White.copy(alpha=0.5f), RoundedCornerShape(32.dp))
+                    .border(1.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(32.dp))
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     // Header Row
@@ -94,21 +107,40 @@ fun OverlayScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Edit, contentDescription = null, tint = PastelColors.TextMain, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
+                            // Show back arrow in Chat mode
+                            if (state is OverlayState.Chat) {
+                                IconButton(
+                                    onClick = onBack,
+                                    modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.3f))
+                                ) {
+                                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = PastelColors.TextMain, modifier = Modifier.size(16.dp))
+                                }
+                                Spacer(Modifier.width(8.dp))
+                            } else {
+                                Icon(Icons.Default.Edit, contentDescription = null, tint = PastelColors.TextMain, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                            }
                             Text(
-                                "GrammarLens",
+                                if (state is OverlayState.Chat) "Assistant" else "GrammarLens",
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 18.sp,
                                 color = PastelColors.TextMain
                             )
                         }
                         Row {
-                            IconButton(onClick = onOpenChat, modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha=0.3f))) {
-                                Icon(Icons.Default.Face, contentDescription = "Chat", tint = PastelColors.TextMain, modifier = Modifier.size(16.dp))
+                            if (state !is OverlayState.Chat) {
+                                IconButton(
+                                    onClick = onOpenChat,
+                                    modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.3f))
+                                ) {
+                                    Icon(Icons.Default.Face, contentDescription = "Chat", tint = PastelColors.TextMain, modifier = Modifier.size(16.dp))
+                                }
+                                Spacer(Modifier.width(8.dp))
                             }
-                            Spacer(Modifier.width(8.dp))
-                            IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha=0.3f))) {
+                            IconButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.3f))
+                            ) {
                                 Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = PastelColors.TextMain, modifier = Modifier.size(16.dp))
                             }
                         }
@@ -119,7 +151,7 @@ fun OverlayScreen(
                     when (state) {
                         is OverlayState.GrammarSuggestion -> {
                             val result = state.result
-                            
+
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     result.mistakes.firstOrNull()?.category ?: "Suggestion",
@@ -128,6 +160,7 @@ fun OverlayScreen(
                                     color = PastelColors.TextMain
                                 )
                                 Spacer(Modifier.width(8.dp))
+                                // Explain is a user-triggered button, not auto shown
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(8.dp))
@@ -140,26 +173,62 @@ fun OverlayScreen(
                             }
 
                             Spacer(Modifier.height(12.dp))
-                            
-                            Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White).padding(16.dp)) {
+
+                            // Corrected text box with Copy button
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(Color.White)
+                                    .padding(16.dp)
+                            ) {
                                 Column {
-                                    Text("Correction:", fontSize = 12.sp, color = PastelColors.TextMain.copy(alpha=0.6f))
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(result.correctedText, fontSize = 15.sp, color = PastelColors.TextMain, fontWeight = FontWeight.Medium)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Correction:", fontSize = 12.sp, color = PastelColors.TextMain.copy(alpha = 0.6f))
+                                            Spacer(Modifier.height(4.dp))
+                                            Text(result.correctedText, fontSize = 15.sp, color = PastelColors.TextMain, fontWeight = FontWeight.Medium)
+                                        }
+                                        Spacer(Modifier.width(8.dp))
+                                        // Copy button
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(PastelColors.CardBlue)
+                                                .clickable {
+                                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                    clipboard.setPrimaryClip(ClipData.newPlainText("corrected", result.correctedText))
+                                                }
+                                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                                        ) {
+                                            Text("Copy", fontSize = 11.sp, color = PastelColors.TextMain, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
                                 }
                             }
 
+                            // Show explanation only when the user asked for it
                             if (actionResult != null) {
                                 Spacer(Modifier.height(12.dp))
-                                Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha=0.6f)).padding(12.dp)) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color.White.copy(alpha = 0.6f))
+                                        .padding(12.dp)
+                                ) {
                                     Text(actionResult, fontSize = 13.sp, color = PastelColors.TextMain, lineHeight = 18.sp)
                                 }
                             }
 
                             Spacer(Modifier.height(16.dp))
-                            
+
                             // Tone Toggles
-                            Text("Rewrite Tone:", fontSize = 12.sp, color = PastelColors.TextMain.copy(alpha=0.6f))
+                            Text("Rewrite Tone:", fontSize = 12.sp, color = PastelColors.TextMain.copy(alpha = 0.6f))
                             Spacer(Modifier.height(8.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -181,7 +250,11 @@ fun OverlayScreen(
                             Spacer(Modifier.height(24.dp))
 
                             if (isLoadingAction) {
-                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = PastelColors.SuccessGreen, trackColor = Color.White.copy(alpha = 0.5f))
+                                LinearProgressIndicator(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = PastelColors.SuccessGreen,
+                                    trackColor = Color.White.copy(alpha = 0.5f)
+                                )
                             } else {
                                 Button(
                                     onClick = { onApplyFix(result.correctedText) },
@@ -193,7 +266,7 @@ fun OverlayScreen(
                                 }
                                 Spacer(Modifier.height(8.dp))
                                 TextButton(onClick = onPause, modifier = Modifier.fillMaxWidth()) {
-                                    Text("Pause for ${pauseDurationMins}m", color = PastelColors.TextMain.copy(alpha=0.6f), fontWeight = FontWeight.SemiBold)
+                                    Text("Pause for ${pauseDurationMins}m", color = PastelColors.TextMain.copy(alpha = 0.6f), fontWeight = FontWeight.SemiBold)
                                 }
                             }
                         }
@@ -201,13 +274,47 @@ fun OverlayScreen(
                         is OverlayState.RewritePreview -> {
                             Text("Tone Preview", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = PastelColors.TextMain)
                             Spacer(Modifier.height(12.dp))
-                            
-                            Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White).padding(16.dp)) {
-                                Text(state.newText, fontSize = 15.sp, color = PastelColors.TextMain, fontWeight = FontWeight.Medium)
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(Color.White)
+                                    .padding(16.dp)
+                            ) {
+                                Column {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Text(
+                                            state.newText,
+                                            fontSize = 15.sp,
+                                            color = PastelColors.TextMain,
+                                            fontWeight = FontWeight.Medium,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        // Copy button for rewrite too
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(PastelColors.CardBlue)
+                                                .clickable {
+                                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                    clipboard.setPrimaryClip(ClipData.newPlainText("rewritten", state.newText))
+                                                }
+                                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                                        ) {
+                                            Text("Copy", fontSize = 11.sp, color = PastelColors.TextMain, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
                             }
-                            
+
                             Spacer(Modifier.height(24.dp))
-                            
+
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Button(
                                     onClick = { onAction("Retry") },
@@ -219,7 +326,7 @@ fun OverlayScreen(
                                     Spacer(Modifier.width(6.dp))
                                     Text("Retry", color = PastelColors.TextMain, fontWeight = FontWeight.Bold)
                                 }
-                                
+
                                 Button(
                                     onClick = { onApplyFix(state.newText) },
                                     modifier = Modifier.weight(1f).height(50.dp),
@@ -230,16 +337,32 @@ fun OverlayScreen(
                                 }
                             }
                         }
-                        
+
                         is OverlayState.Chat -> {
                             var textInput by remember { mutableStateOf("") }
-                            
-                            Text("Assistant", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = PastelColors.TextMain)
-                            Spacer(Modifier.height(12.dp))
-                            
+
+                            Spacer(Modifier.height(4.dp))
+
                             // Chat History
-                            Box(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp).clip(RoundedCornerShape(16.dp)).background(Color.White).padding(8.dp)) {
-                                Column(modifier = Modifier.verticalScroll(rememberScrollState()).fillMaxWidth()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 200.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(Color.White)
+                                    .padding(8.dp)
+                            ) {
+                                val scrollState = rememberScrollState()
+                                Column(
+                                    modifier = Modifier
+                                        .verticalScroll(scrollState)
+                                        .fillMaxWidth()
+                                ) {
+                                    if (chatHistory.none { it.role != "system" }) {
+                                        Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                            Text("Ask me anything!", fontSize = 13.sp, color = PastelColors.TextMain.copy(alpha = 0.4f))
+                                        }
+                                    }
                                     chatHistory.forEach { msg ->
                                         if (msg.role != "system") {
                                             val isUser = msg.role == "user"
@@ -261,13 +384,13 @@ fun OverlayScreen(
                                         }
                                     }
                                     if (isLoadingAction) {
-                                        Text("typing...", fontSize = 11.sp, color = PastelColors.TextMain.copy(alpha=0.5f), modifier = Modifier.padding(4.dp))
+                                        Text("typing...", fontSize = 11.sp, color = PastelColors.TextMain.copy(alpha = 0.5f), modifier = Modifier.padding(4.dp))
                                     }
                                 }
                             }
-                            
+
                             Spacer(Modifier.height(12.dp))
-                            
+
                             // Input Box
                             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                 TextField(
@@ -281,20 +404,26 @@ fun OverlayScreen(
                                         focusedIndicatorColor = Color.Transparent,
                                         unfocusedIndicatorColor = Color.Transparent
                                     ),
-                                    shape = RoundedCornerShape(25.dp)
+                                    shape = RoundedCornerShape(25.dp),
+                                    maxLines = 1
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Box(
-                                    modifier = Modifier.size(50.dp).clip(CircleShape).background(PastelColors.SuccessGreen).clickable(enabled = !isLoadingAction && textInput.isNotBlank()) {
-                                        onSendMessage(textInput)
-                                        textInput = ""
-                                    },
+                                    modifier = Modifier
+                                        .size(50.dp)
+                                        .clip(CircleShape)
+                                        .background(if (!isLoadingAction && textInput.isNotBlank()) PastelColors.SuccessGreen else Color.LightGray)
+                                        .clickable(enabled = !isLoadingAction && textInput.isNotBlank()) {
+                                            onSendMessage(textInput)
+                                            textInput = ""
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("->", color = PastelColors.TextMain, fontWeight = FontWeight.Bold)
+                                    Text("→", color = PastelColors.TextMain, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                                 }
                             }
                         }
+
                         else -> {}
                     }
                 }

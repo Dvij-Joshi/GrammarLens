@@ -228,6 +228,8 @@ class GrammarAccessibilityService : AccessibilityService() {
                     }
 
                     overlayManager.showGrammarSuggestion(result, pauseMins)
+                    // Mark bubble as red (error detected)
+                    overlayManager.lastGrammarResult = result
                 }
             } else {
                 val entity = MistakeEntity(
@@ -237,10 +239,7 @@ class GrammarAccessibilityService : AccessibilityService() {
                     isCorrect = true
                 )
                 database.mistakeDao().insertMistake(entity)
-
-                withContext(Dispatchers.Main) {
-                    overlayManager.showSuccessOverlay()
-                }
+                // Text is correct - keep idle bubble as normal (no error color)
             }
         }
     }

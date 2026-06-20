@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
 
 sealed class OverlayState {
     object Hidden : OverlayState()
-    object IdleBubble : OverlayState()
+    data class IdleBubble(val hasError: Boolean = false) : OverlayState()
     data class GrammarSuggestion(val result: GrammarCheckResult) : OverlayState()
     data class RewritePreview(val originalText: String, val newText: String) : OverlayState()
     object Chat : OverlayState()
@@ -53,6 +53,8 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
     var onExplain: (() -> Unit)? = null
     var onPause: (() -> Unit)? = null
     var onSendMessage: ((String) -> Unit)? = null
+    var onBack: (() -> Unit)? = null
+    var lastGrammarResult: com.example.grammarlens.network.GrammarCheckResult? = null
     var pauseDurationMins: Int = 15
 
     override val lifecycle: Lifecycle get() = lifecycleRegistry
@@ -65,14 +67,16 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
     }
 
-    fun showIdleBubble() {
-        if (overlayState.value is OverlayState.Hidden || overlayState.value is OverlayState.IdleBubble) {
-            updateState(OverlayState.IdleBubble)
+    fun showIdleBubble(hasError: Boolean = false) {
+        if (overlayState.value is OverlayState.Hidden ||
+            overlayState.value is OverlayState.IdleBubble) {
+            updateState(OverlayState.IdleBubble(hasError))
         }
     }
 
     fun showGrammarSuggestion(result: GrammarCheckResult, pauseMins: Int) {
         pauseDurationMins = pauseMins
+        actionResult.value = null // Clear any previous explain text
         updateState(OverlayState.GrammarSuggestion(result))
     }
 
@@ -94,14 +98,17 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
     }
 
     fun showSuccessOverlay() {
-        // Just briefly show an indicator or handle it in UI
-        setActionResult("Looks good!")
-        CoroutineScope(Dispatchers.Main).launch {
-            delay(2000)
-            setActionResult(null)
-            if (overlayState.value is OverlayState.GrammarSuggestion) {
-                updateState(OverlayState.IdleBubble)
-            }
+        // Don't show anything for correct text - just keep idle bubble
+        updateState(OverlayState.IdleBubble(hasError = false))
+    }
+
+    fun backFromChat() {
+        val lastResult = lastGrammarResult
+        if (lastResult != null) {
+            actionResult.value = null
+            updateState(OverlayState.GrammarSuggestion(lastResult))
+        } else {
+            updateState(OverlayState.IdleBubble(hasError = false))
         }
     }
 
@@ -147,6 +154,7 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                         onExplain = { onExplain?.invoke() },
                         onPause = { onPause?.invoke() },
                         onSendMessage = { onSendMessage?.invoke(it) },
+                        onBack = { backFromChat() },
                         onDismiss = { hideOverlay() },
                         onExpand = { showChat() },
                         onOpenChat = { showChat() }
@@ -162,11 +170,11 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                 else
                     @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                        WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM,
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-                softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
             }
 
             windowManager.addView(composeView, layoutParams)
@@ -175,9 +183,15 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
             val layoutParams = composeView?.layoutParams as? WindowManager.LayoutParams
             if (layoutParams != null) {
                 if (newState is OverlayState.Chat) {
-                    layoutParams.flags = layoutParams.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+                    // Allow keyboard focus for typing in chat
+                    layoutParams.flags = layoutParams.flags and
+                            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv() and
+                            WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM.inv()
                 } else {
-                    layoutParams.flags = layoutParams.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                    // Restore non-focusable + above-keyboard flags
+                    layoutParams.flags = layoutParams.flags or
+                            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                            WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
                 }
                 windowManager.updateViewLayout(composeView, layoutParams)
             }
