@@ -124,14 +124,12 @@ class GrammarAccessibilityService : AccessibilityService() {
             val node = event.source
             if (node?.isEditable == true) {
                 lastEditableNode = node
-                // Focus on editable field means keyboard should be (or will be) open
-                CoroutineScope(Dispatchers.Main).launch {
-                    overlayManager.showIdleBubble()
-                    overlayManager.updateBottomOffset(getImeHeightPx())
-                }
-            } else if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            }
+            // On any focus/window event, refresh keyboard height (keyboard may have just opened)
+            serviceScope.launch {
+                delay(200) // Short delay to let keyboard animation complete
                 val imeHeight = getImeHeightPx()
-                CoroutineScope(Dispatchers.Main).launch {
+                withContext(Dispatchers.Main) {
                     overlayManager.updateBottomOffset(imeHeight)
                     if (imeHeight == 0 && overlayManager.overlayState.value is OverlayState.IdleBubble) {
                         overlayManager.hideOverlay()
@@ -143,15 +141,17 @@ class GrammarAccessibilityService : AccessibilityService() {
 
         if (type != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
 
-        // Save the editable node for later text replacement
-        event.source?.let { node ->
-            if (node.isEditable) {
-                lastEditableNode = node
-                CoroutineScope(Dispatchers.Main).launch {
-                    overlayManager.showIdleBubble()
-                    overlayManager.updateBottomOffset(getImeHeightPx())
-                }
-            }
+        // Save the editable node - also try source node if not already set
+        val srcNode = event.source
+        if (srcNode?.isEditable == true) {
+            lastEditableNode = srcNode
+        }
+
+        // Show idle bubble for ANY text change event (don't require isEditable - some apps don't report it)
+        CoroutineScope(Dispatchers.Main).launch {
+            overlayManager.showIdleBubble()
+            val imeHeight = getImeHeightPx()
+            overlayManager.updateBottomOffset(imeHeight)
         }
 
         val nodeText = event.source?.text?.toString()
@@ -249,10 +249,21 @@ class GrammarAccessibilityService : AccessibilityService() {
         return try {
             val imeWindow = windows?.firstOrNull {
                 it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD
-            } ?: return 0
-            val rect = Rect()
-            imeWindow.getBoundsInScreen(rect)
-            if (rect.isEmpty) 0 else (resources.displayMetrics.heightPixels - rect.top)
+            }
+            if (imeWindow != null) {
+                val rect = Rect()
+                imeWindow.getBoundsInScreen(rect)
+                val height = if (rect.isEmpty) 0 else (resources.displayMetrics.heightPixels - rect.top)
+                if (height > 0) return height
+            }
+            // Fallback: if InputMethodManager says keyboard is active, estimate height
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+            @Suppress("DEPRECATION")
+            if (imm?.isAcceptingText() == true) {
+                // Typical keyboard is ~40-45% of screen height
+                return (resources.displayMetrics.heightPixels * 0.42).toInt()
+            }
+            0
         } catch (e: Exception) { 0 }
     }
 

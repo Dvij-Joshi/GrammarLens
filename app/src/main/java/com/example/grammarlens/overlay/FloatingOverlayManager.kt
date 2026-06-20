@@ -179,6 +179,10 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
             }
 
             windowManager.addView(composeView, layoutParams)
+            // Post a position update after the view is attached to handle delayed IME detection
+            composeView?.post {
+                if (currentImeHeight > 0) updateBottomOffset(currentImeHeight)
+            }
         } else {
             val layoutParams = composeView?.layoutParams as? WindowManager.LayoutParams
             if (layoutParams != null) {
@@ -198,10 +202,15 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
     /** Called by the service whenever IME (keyboard) height changes. Repositions overlay above the keyboard. */
     fun updateBottomOffset(offsetPx: Int) {
         currentImeHeight = offsetPx
-        val lp = composeView?.layoutParams as? WindowManager.LayoutParams ?: return
+        val view = composeView ?: return
+        if (!view.isAttachedToWindow) {
+            // View not yet attached — will be picked up by post() after addView
+            return
+        }
+        val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
         if (lp.y != offsetPx) {
             lp.y = offsetPx
-            try { windowManager.updateViewLayout(composeView, lp) } catch (e: Exception) {}
+            try { windowManager.updateViewLayout(view, lp) } catch (e: Exception) {}
         }
     }
 }
