@@ -75,9 +75,10 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
     }
 
     fun showIdleBubble(hasError: Boolean = false) {
+        val actualHasError = hasError || (lastGrammarResult?.isGrammarCorrect == false)
         if (overlayState.value is OverlayState.Hidden ||
             overlayState.value is OverlayState.IdleBubble) {
-            updateState(OverlayState.IdleBubble(hasError))
+            updateState(OverlayState.IdleBubble(actualHasError))
         }
     }
 
@@ -85,11 +86,20 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
         pauseDurationMins = pauseMins
         actionResult.value = null
         lastGrammarResult = result
+        
+        val isUnusedChat = overlayState.value is OverlayState.Chat &&
+                (composeView?.layoutParams as? WindowManager.LayoutParams)?.flags?.and(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) != 0
+
         // Turn bubble RED to alert user — they click to open correction popup
         when (overlayState.value) {
             is OverlayState.Hidden, is OverlayState.IdleBubble ->
                 updateState(OverlayState.IdleBubble(hasError = true))
-            else -> {} // Don't override an already-open popup
+            else -> {
+                // If the user accidentally opened Chat before the grammar check finished, override it
+                if (isUnusedChat) {
+                    updateState(OverlayState.IdleBubble(hasError = true))
+                }
+            }
         }
     }
 
@@ -127,7 +137,7 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
     }
 
     fun hideOverlay() {
-        lastGrammarResult = null  // Clear cached error on explicit dismiss
+        // Do NOT clear lastGrammarResult here, so the user can re-open their last error.
         // Restore non-focusable flag before destroying view (clean state for next show)
         composeView?.let { view ->
             val lp = view.layoutParams as? WindowManager.LayoutParams
@@ -188,7 +198,13 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                         actionResult = actResult,
                         pauseDurationMins = pauseDurationMins,
                         onApplyFix = { onApplyFix?.invoke(it) },
-                        onAction = { onAction?.invoke(it) },
+                        onAction = { 
+                            if (it == "ClearAction") {
+                                setActionResult(null)
+                            } else {
+                                onAction?.invoke(it)
+                            }
+                        },
                         onExplain = { onExplain?.invoke() },
                         onPause = { onPause?.invoke() },
                         onSendMessage = { onSendMessage?.invoke(it) },

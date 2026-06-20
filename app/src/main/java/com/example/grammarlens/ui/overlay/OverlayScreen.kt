@@ -247,7 +247,20 @@ fun OverlayScreen(
                                         .background(Color.White.copy(alpha = 0.6f))
                                         .padding(12.dp)
                                 ) {
-                                    Text(actionResult, fontSize = 13.sp, color = PastelColors.TextMain, lineHeight = 18.sp)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Text(actionResult, fontSize = 13.sp, color = PastelColors.TextMain, lineHeight = 18.sp, modifier = Modifier.weight(1f))
+                                        Spacer(Modifier.width(8.dp))
+                                        Icon(
+                                            Icons.Default.Close, 
+                                            contentDescription = "Clear", 
+                                            tint = PastelColors.TextMain.copy(alpha = 0.6f), 
+                                            modifier = Modifier.size(16.dp).clickable { onAction("ClearAction") }
+                                        )
+                                    }
                                 }
                             }
 
@@ -260,12 +273,15 @@ fun OverlayScreen(
                                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                listOf("Improve Vocabulary", "Make Formal", "Make Crisp").forEach { action ->
+                                listOf("Explain", "Improve Vocabulary", "Make Formal", "Make Crisp").forEach { action ->
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(12.dp))
-                                            .background(PastelColors.CardBlue)
-                                            .clickable { onAction(action) }
+                                            .background(if (action == "Explain") PastelColors.CardPink else PastelColors.CardBlue)
+                                            .clickable { 
+                                                if (action == "Explain") onExplain() 
+                                                else onAction(action) 
+                                            }
                                             .padding(horizontal = 12.dp, vertical = 8.dp)
                                     ) {
                                         Text(action, fontSize = 13.sp, color = PastelColors.TextMain, fontWeight = FontWeight.SemiBold)
@@ -373,10 +389,16 @@ fun OverlayScreen(
                             // After making window focusable, wait briefly then request focus + show keyboard
                             LaunchedEffect(windowFocused) {
                                 if (windowFocused) {
-                                    kotlinx.coroutines.delay(80) // Let FLAG_NOT_FOCUSABLE removal take effect
-                                    try { focusRequester.requestFocus() } catch (e: Exception) {}
-                                    val imm = view.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-                                    imm?.showSoftInput(view, 0)
+                                    var retries = 0
+                                    while (retries < 3) {
+                                        kotlinx.coroutines.delay(150) // Let FLAG_NOT_FOCUSABLE removal take effect
+                                        try { focusRequester.requestFocus() } catch (e: Exception) {}
+                                        val imm = view.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                                        if (imm?.isActive(view) == true || imm?.showSoftInput(view, 0) == true) {
+                                            break
+                                        }
+                                        retries++
+                                    }
                                 }
                             }
 
