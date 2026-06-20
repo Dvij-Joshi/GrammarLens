@@ -57,6 +57,8 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
     var lastGrammarResult: com.example.grammarlens.network.GrammarCheckResult? = null
     var currentImeHeight: Int = 0  // Updated by the service when keyboard shows/hides
     var pauseDurationMins: Int = 15
+    /** Called from the chat TextField when user taps it — makes window keyboard-focusable. */
+    var onRequestKeyboardFocus: (() -> Unit)? = null
 
     override val lifecycle: Lifecycle get() = lifecycleRegistry
     override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
@@ -121,6 +123,14 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
 
     fun hideOverlay() {
         lastGrammarResult = null  // Clear cached error on explicit dismiss
+        // Restore non-focusable flag before destroying view (clean state for next show)
+        composeView?.let { view ->
+            val lp = view.layoutParams as? WindowManager.LayoutParams
+            if (lp != null && (lp.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) == 0) {
+                lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                try { windowManager.updateViewLayout(view, lp) } catch (e: Exception) {}
+            }
+        }
         updateState(OverlayState.Hidden)
     }
 
@@ -173,13 +183,15 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                                 showChat()
                             }
                         },
-                        onOpenChat = { showChat() }
+                        onOpenChat = { showChat() },
+                        onRequestKeyboardFocus = { makeWindowFocusable() }
                     )
                 }
             }
 
             val layoutParams = WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
+                if (newState is OverlayState.IdleBubble) WindowManager.LayoutParams.WRAP_CONTENT
+                else WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                     WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -189,8 +201,11 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                         WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                 PixelFormat.TRANSLUCENT
             ).apply {
-                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-                y = currentImeHeight  // Position above keyboard from the start
+                gravity = if (newState is OverlayState.IdleBubble)
+                    Gravity.BOTTOM or Gravity.END   // Bubble: anchor bottom-right
+                else
+                    Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL  // Card: full-width centered
+                y = currentImeHeight
             }
 
             windowManager.addView(composeView, layoutParams)
@@ -201,21 +216,39 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
         } else {
             val layoutParams = composeView?.layoutParams as? WindowManager.LayoutParams
             if (layoutParams != null) {
-                val isCurrFocusable = (layoutParams.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) == 0
-                val shouldBeFocusable = newState is OverlayState.Chat
-                // Only update window layout when the focusable flag actually needs to change
-                // (avoids unnecessary updateViewLayout that can cause keyboard to dismiss)
-                if (isCurrFocusable != shouldBeFocusable) {
-                    if (shouldBeFocusable) {
-                        layoutParams.flags = layoutParams.flags and
-                                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
-                    } else {
-                        layoutParams.flags = layoutParams.flags or
-                                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                    }
-                    windowManager.updateViewLayout(composeView, layoutParams)
+                // Update width and gravity based on state (IdleBubble = compact, others = full-width)
+                val newWidth = if (newState is OverlayState.IdleBubble)
+                    WindowManager.LayoutParams.WRAP_CONTENT
+                else
+                    WindowManager.LayoutParams.MATCH_PARENT
+                val newGravity = if (newState is OverlayState.IdleBubble)
+                    Gravity.BOTTOM or Gravity.END
+                else
+                    Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+
+                val widthChanged = layoutParams.width != newWidth
+                val gravityChanged = layoutParams.gravity != newGravity
+                // NOTE: We no longer toggle FLAG_NOT_FOCUSABLE here.
+                // The window stays non-focusable until the user explicitly taps the chat input,
+                // at which point makeWindowFocusable() is called — this prevents keyboard dismissal.
+                if (widthChanged || gravityChanged) {
+                    layoutParams.width = newWidth
+                    layoutParams.gravity = newGravity
+                    try { windowManager.updateViewLayout(composeView, layoutParams) } catch (e: Exception) {}
                 }
             }
+        }
+    }
+
+    /** Removes FLAG_NOT_FOCUSABLE so the chat TextField can receive keyboard input.
+     *  Called only when the user explicitly taps the chat input — avoids unwanted keyboard dismissal. */
+    fun makeWindowFocusable() {
+        val view = composeView ?: return
+        val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
+        val alreadyFocusable = (lp.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) == 0
+        if (!alreadyFocusable) {
+            lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+            try { windowManager.updateViewLayout(view, lp) } catch (e: Exception) {}
         }
     }
 

@@ -3,12 +3,15 @@ package com.example.grammarlens.ui.overlay
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.view.inputmethod.InputMethodManager
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,11 +27,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.grammarlens.network.GrammarCheckResult
 import com.example.grammarlens.ui.components.PastelColors
 import com.example.grammarlens.overlay.OverlayState
@@ -49,6 +56,7 @@ fun OverlayScreen(
     onBack: () -> Unit = {},
     onExpand: () -> Unit = {},
     onOpenChat: () -> Unit = {},
+    onRequestKeyboardFocus: () -> Unit = {},  // Called when user taps chat input
     onDismiss: () -> Unit
 ) {
     if (state is OverlayState.Hidden) return
@@ -340,6 +348,10 @@ fun OverlayScreen(
 
                         is OverlayState.Chat -> {
                             var textInput by remember { mutableStateOf("") }
+                            val focusRequester = remember { FocusRequester() }
+                            val view = LocalView.current
+                            // Track whether the window has been made focusable yet
+                            var windowFocused by remember { mutableStateOf(false) }
 
                             Spacer(Modifier.height(4.dp))
 
@@ -391,13 +403,26 @@ fun OverlayScreen(
 
                             Spacer(Modifier.height(12.dp))
 
-                            // Input Box
+                            // Input Box — tapping it makes the overlay window focusable THEN opens keyboard
                             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                 TextField(
                                     value = textInput,
                                     onValueChange = { textInput = it },
-                                    modifier = Modifier.weight(1f).height(50.dp),
-                                    placeholder = { Text("Ask something...", fontSize = 13.sp) },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(50.dp)
+                                        .focusRequester(focusRequester)
+                                        .clickable {
+                                            if (!windowFocused) {
+                                                windowFocused = true
+                                                onRequestKeyboardFocus()  // Makes window focusable
+                                                // Request focus + show keyboard after window flag update
+                                                focusRequester.requestFocus()
+                                                val imm = view.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                                                imm?.showSoftInput(view, InputMethodManager.SHOW_FORCED)
+                                            }
+                                        },
+                                    placeholder = { Text(if (windowFocused) "Ask something..." else "Tap to type...", fontSize = 13.sp) },
                                     colors = TextFieldDefaults.colors(
                                         focusedContainerColor = Color.White,
                                         unfocusedContainerColor = Color.White,
@@ -405,7 +430,8 @@ fun OverlayScreen(
                                         unfocusedIndicatorColor = Color.Transparent
                                     ),
                                     shape = RoundedCornerShape(25.dp),
-                                    maxLines = 1
+                                    maxLines = 1,
+                                    readOnly = !windowFocused  // Prevent keyboard until window is focusable
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Box(
