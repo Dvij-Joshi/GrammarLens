@@ -544,18 +544,9 @@ fun ErrorsTab(
                 val context = LocalContext.current
                 Button(
                     onClick = {
-                        val report = buildString {
-                            append("My GrammarLens Progress Report\n\n")
-                            categoryBreakdown.forEach {
-                                append("- ${it.category}: ${it.count} mistakes (${String.format("%.1f", it.percentage)}%)\n")
-                            }
-                            append("\nCheck out GrammarLens to improve your writing too!")
-                        }
-                        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(android.content.Intent.EXTRA_TEXT, report)
-                        }
-                        context.startActivity(android.content.Intent.createChooser(intent, "Share Progress"))
+                        com.example.grammarlens.util.ReportCardGenerator.generateAndShare(
+                            context, trendData, categoryBreakdown
+                        )
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = PastelColors.CardBlue),
