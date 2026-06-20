@@ -55,6 +55,7 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
     var onSendMessage: ((String) -> Unit)? = null
     var onBack: (() -> Unit)? = null
     var lastGrammarResult: com.example.grammarlens.network.GrammarCheckResult? = null
+    var currentImeHeight: Int = 0  // Updated by the service when keyboard shows/hides
     var pauseDurationMins: Int = 15
 
     override val lifecycle: Lifecycle get() = lifecycleRegistry
@@ -170,31 +171,37 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                 else
                     @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                        WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM,
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                y = currentImeHeight  // Position above keyboard from the start
             }
 
             windowManager.addView(composeView, layoutParams)
         } else {
-            // Update flags if entering Chat state
             val layoutParams = composeView?.layoutParams as? WindowManager.LayoutParams
             if (layoutParams != null) {
                 if (newState is OverlayState.Chat) {
                     // Allow keyboard focus for typing in chat
                     layoutParams.flags = layoutParams.flags and
-                            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv() and
-                            WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM.inv()
+                            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
                 } else {
-                    // Restore non-focusable + above-keyboard flags
                     layoutParams.flags = layoutParams.flags or
-                            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                            WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
+                            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                 }
                 windowManager.updateViewLayout(composeView, layoutParams)
             }
+        }
+    }
+
+    /** Called by the service whenever IME (keyboard) height changes. Repositions overlay above the keyboard. */
+    fun updateBottomOffset(offsetPx: Int) {
+        currentImeHeight = offsetPx
+        val lp = composeView?.layoutParams as? WindowManager.LayoutParams ?: return
+        if (lp.y != offsetPx) {
+            lp.y = offsetPx
+            try { windowManager.updateViewLayout(composeView, lp) } catch (e: Exception) {}
         }
     }
 }

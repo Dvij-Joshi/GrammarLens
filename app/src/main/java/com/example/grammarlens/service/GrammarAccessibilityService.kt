@@ -9,6 +9,8 @@ import android.view.accessibility.AccessibilityNodeInfo
 import com.example.grammarlens.data.database.GrammarDatabase
 import com.example.grammarlens.data.database.MistakeEntity
 import com.example.grammarlens.network.GrammarChecker
+import android.graphics.Rect
+import android.view.accessibility.AccessibilityWindowInfo
 import com.example.grammarlens.overlay.FloatingOverlayManager
 import com.example.grammarlens.overlay.OverlayState
 import kotlinx.coroutines.CoroutineScope
@@ -122,19 +124,16 @@ class GrammarAccessibilityService : AccessibilityService() {
             val node = event.source
             if (node?.isEditable == true) {
                 lastEditableNode = node
-                // Keyboard is open if we got a focus event on an editable field
+                // Focus on editable field means keyboard should be (or will be) open
                 CoroutineScope(Dispatchers.Main).launch {
                     overlayManager.showIdleBubble()
+                    overlayManager.updateBottomOffset(getImeHeightPx())
                 }
             } else if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-                // Window changed to non-editable: check keyboard state
-                val isKeyboardVisible = try {
-                    windows?.any { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD } ?: false
-                } catch (e: Exception) { false }
-
-                // Only hide the bubble — never kill an active grammar suggestion
-                if (!isKeyboardVisible && overlayManager.overlayState.value is OverlayState.IdleBubble) {
-                    CoroutineScope(Dispatchers.Main).launch {
+                val imeHeight = getImeHeightPx()
+                CoroutineScope(Dispatchers.Main).launch {
+                    overlayManager.updateBottomOffset(imeHeight)
+                    if (imeHeight == 0 && overlayManager.overlayState.value is OverlayState.IdleBubble) {
                         overlayManager.hideOverlay()
                     }
                 }
@@ -150,6 +149,7 @@ class GrammarAccessibilityService : AccessibilityService() {
                 lastEditableNode = node
                 CoroutineScope(Dispatchers.Main).launch {
                     overlayManager.showIdleBubble()
+                    overlayManager.updateBottomOffset(getImeHeightPx())
                 }
             }
         }
@@ -228,7 +228,7 @@ class GrammarAccessibilityService : AccessibilityService() {
                     }
 
                     overlayManager.showGrammarSuggestion(result, pauseMins)
-                    // Mark bubble as red (error detected)
+                    overlayManager.updateBottomOffset(getImeHeightPx()) // Ensure it's above keyboard
                     overlayManager.lastGrammarResult = result
                 }
             } else {
@@ -242,6 +242,18 @@ class GrammarAccessibilityService : AccessibilityService() {
                 // Text is correct - keep idle bubble as normal (no error color)
             }
         }
+    }
+
+    /** Returns the height of the on-screen keyboard in pixels, or 0 if not visible. */
+    private fun getImeHeightPx(): Int {
+        return try {
+            val imeWindow = windows?.firstOrNull {
+                it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD
+            } ?: return 0
+            val rect = Rect()
+            imeWindow.getBoundsInScreen(rect)
+            if (rect.isEmpty) 0 else (resources.displayMetrics.heightPixels - rect.top)
+        } catch (e: Exception) { 0 }
     }
 
     override fun onInterrupt() {
