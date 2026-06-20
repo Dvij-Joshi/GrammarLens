@@ -45,6 +45,7 @@ fun DashboardScreen(
     val currentApiKey by viewModel.apiKey.collectAsState()
     val currentApiUrl by viewModel.apiUrl.collectAsState()
     val isServiceEnabled by viewModel.isServiceEnabled.collectAsState()
+    val pauseUntil by viewModel.pauseUntil.collectAsState()
 
     var currentTab by remember { mutableIntStateOf(0) }
     var showTestingSheet by remember { mutableStateOf(false) }
@@ -73,7 +74,9 @@ fun DashboardScreen(
                     currentApiKey = currentApiKey,
                     currentApiUrl = currentApiUrl,
                     viewModel = viewModel,
-                    onOpenSettings = onOpenSettings
+                    onOpenSettings = onOpenSettings,
+                    pauseUntil = pauseUntil,
+                    onResume = { viewModel.setPauseUntil(0L) }
                 )
                 1 -> ErrorsTab(
                     categoryBreakdown = categoryBreakdown,
@@ -93,7 +96,9 @@ fun DashboardScreen(
                     currentApiKey = currentApiKey,
                     currentApiUrl = currentApiUrl,
                     viewModel = viewModel,
-                    onOpenSettings = onOpenSettings
+                    onOpenSettings = onOpenSettings,
+                    pauseUntil = pauseUntil,
+                    onResume = { viewModel.setPauseUntil(0L) }
                 )
             }
         }
@@ -155,7 +160,9 @@ fun DashboardTab(
     currentApiKey: String,
     currentApiUrl: String,
     viewModel: DashboardViewModel,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    pauseUntil: Long = 0L,
+    onResume: () -> Unit = {}
 ) {
         LazyColumn(
             modifier = Modifier
@@ -199,6 +206,40 @@ fun DashboardTab(
 
             if (!hasPermissions) {
                 item { PermissionWarningCard(onOpenSettings) }
+            }
+
+            // Paused banner
+            if (pauseUntil > System.currentTimeMillis()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color(0xFFFFF0F0))
+                            .padding(horizontal = 20.dp, vertical = 14.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("⏸ GrammarLens Paused", fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F), fontSize = 14.sp)
+                                Text("Tap Resume to turn corrections back on", fontSize = 12.sp, color = PastelColors.TextMain.copy(alpha = 0.6f))
+                            }
+                            Button(
+                                onClick = onResume,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Resume", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                        }
+                    }
+                }
             }
 
             // Mistake Rate Chart
@@ -343,53 +384,123 @@ fun PauseConfigurationCard(
     onDurationChange: (Int) -> Unit,
     onPauseToggle: () -> Unit
 ) {
-    val isPaused = pauseUntil > System.currentTimeMillis()
-    
+    // Tick every second to update the countdown display
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(pauseUntil) {
+        while (true) {
+            now = System.currentTimeMillis()
+            kotlinx.coroutines.delay(1000)
+        }
+    }
+
+    val isPaused = pauseUntil > now
+    val remainingMs = if (isPaused) (pauseUntil - now).coerceAtLeast(0L) else 0L
+    val remainingMins = (remainingMs / 60000).toInt()
+    val remainingSecs = ((remainingMs % 60000) / 1000).toInt()
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(32.dp))
-            .background(Color.White)
+            .background(if (isPaused) Color(0xFFFFF0F0) else Color.White)
             .padding(24.dp)
     ) {
         Column {
-            Text("Quick Pause", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = PastelColors.TextMain)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (isPaused) "⏸ Paused" else "Quick Pause",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = if (isPaused) Color(0xFFD32F2F) else PastelColors.TextMain
+                )
+            }
             Spacer(Modifier.height(8.dp))
-            Text("Set the default duration when you pause corrections from the grammar popup.", fontSize = 14.sp, color = PastelColors.TextMain.copy(alpha=0.6f))
-            Spacer(Modifier.height(16.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                listOf(5, 15, 30, 60).forEach { mins ->
-                    val selected = pauseDurationMins == mins
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (selected) PastelColors.CardPurple else PastelColors.Background)
-                            .clickable { onDurationChange(mins) }
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("${mins}m", color = if (selected) PastelColors.TextMain else PastelColors.TextMain.copy(alpha=0.5f), fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+
+            if (isPaused) {
+                // Paused state — show countdown + Resume button prominently
+                Text(
+                    "GrammarLens corrections are paused.",
+                    fontSize = 14.sp,
+                    color = PastelColors.TextMain.copy(alpha = 0.7f)
+                )
+                Spacer(Modifier.height(12.dp))
+
+                // Countdown chip
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFFFFE0E0))
+                        .padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Resumes in %02d:%02d".format(remainingMins, remainingSecs),
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFD32F2F)
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Resume button — primary action
+                Button(
+                    onClick = onPauseToggle,
+                    modifier = Modifier.fillMaxWidth().height(54.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Resume Now", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            } else {
+                // Normal state — show duration picker + Pause button
+                Text(
+                    "Set how long to pause corrections from the grammar popup.",
+                    fontSize = 14.sp,
+                    color = PastelColors.TextMain.copy(alpha = 0.6f)
+                )
+                Spacer(Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    listOf(5, 15, 30, 60).forEach { mins ->
+                        val selected = pauseDurationMins == mins
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (selected) PastelColors.CardPurple else PastelColors.Background)
+                                .clickable { onDurationChange(mins) }
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "${mins}m",
+                                color = if (selected) PastelColors.TextMain else PastelColors.TextMain.copy(alpha = 0.5f),
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
                     }
                 }
-            }
-            
-            Spacer(Modifier.height(24.dp))
-            
-            Button(
-                onClick = onPauseToggle,
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = if (isPaused) PastelColors.ButtonPink else PastelColors.ToggleOn),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text(
-                    text = if (isPaused) "Cancel Pause" else "Pause Now for ${pauseDurationMins}m",
-                    color = if (isPaused) PastelColors.TextMain else Color.White,
-                    fontWeight = FontWeight.Bold
-                )
+
+                Spacer(Modifier.height(24.dp))
+
+                Button(
+                    onClick = onPauseToggle,
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = PastelColors.ToggleOn),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        "Pause for ${pauseDurationMins}m",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
