@@ -111,7 +111,8 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
         updateState(OverlayState.IdleBubble(hasError = false))
     }
 
-    fun backFromChat() {
+    /** Navigate back: RewritePreview → GrammarSuggestion, Chat → GrammarSuggestion, or → IdleBubble */
+    fun goBack() {
         val lastResult = lastGrammarResult
         if (lastResult != null) {
             actionResult.value = null
@@ -172,7 +173,7 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                         onExplain = { onExplain?.invoke() },
                         onPause = { onPause?.invoke() },
                         onSendMessage = { onSendMessage?.invoke(it) },
-                        onBack = { backFromChat() },
+                        onBack = { goBack() },
                         onDismiss = { hideOverlay() },
                         onExpand = {
                             // Red bubble clicked: open the correction popup if available, else chat

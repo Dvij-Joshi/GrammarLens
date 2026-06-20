@@ -115,8 +115,10 @@ fun OverlayScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            // Show back arrow in Chat mode
-                            if (state is OverlayState.Chat) {
+                            // Show back arrow when there's a logical "parent" screen to return to
+                            val showBack = state is OverlayState.Chat ||
+                                    state is OverlayState.RewritePreview
+                            if (showBack) {
                                 IconButton(
                                     onClick = onBack,
                                     modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.3f))
@@ -129,14 +131,19 @@ fun OverlayScreen(
                                 Spacer(Modifier.width(8.dp))
                             }
                             Text(
-                                if (state is OverlayState.Chat) "Assistant" else "GrammarLens",
+                                text = when (state) {
+                                    is OverlayState.Chat -> "Assistant"
+                                    is OverlayState.RewritePreview -> "Rewrite Preview"
+                                    else -> "GrammarLens"
+                                },
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 18.sp,
                                 color = PastelColors.TextMain
                             )
                         }
                         Row {
-                            if (state !is OverlayState.Chat) {
+                            // Show chat icon only on GrammarSuggestion screen
+                            if (state is OverlayState.GrammarSuggestion) {
                                 IconButton(
                                     onClick = onOpenChat,
                                     modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.3f))
@@ -153,6 +160,7 @@ fun OverlayScreen(
                             }
                         }
                     }
+
 
                     Spacer(Modifier.height(20.dp))
 
