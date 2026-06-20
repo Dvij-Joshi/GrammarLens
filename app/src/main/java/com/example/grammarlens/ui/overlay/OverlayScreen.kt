@@ -358,8 +358,17 @@ fun OverlayScreen(
                             var textInput by remember { mutableStateOf("") }
                             val focusRequester = remember { FocusRequester() }
                             val view = LocalView.current
-                            // Track whether the window has been made focusable yet
                             var windowFocused by remember { mutableStateOf(false) }
+
+                            // After making window focusable, wait briefly then request focus + show keyboard
+                            LaunchedEffect(windowFocused) {
+                                if (windowFocused) {
+                                    kotlinx.coroutines.delay(80) // Let FLAG_NOT_FOCUSABLE removal take effect
+                                    try { focusRequester.requestFocus() } catch (e: Exception) {}
+                                    val imm = view.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                                    imm?.showSoftInput(view, 0)
+                                }
+                            }
 
                             Spacer(Modifier.height(4.dp))
 
@@ -411,36 +420,45 @@ fun OverlayScreen(
 
                             Spacer(Modifier.height(12.dp))
 
-                            // Input Box — tapping it makes the overlay window focusable THEN opens keyboard
+                            // Input row — invisible tap-catcher overlay sits on top of TextField until
+                            // window is made focusable; after first tap it disappears and TextField is live
                             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                TextField(
-                                    value = textInput,
-                                    onValueChange = { textInput = it },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(50.dp)
-                                        .focusRequester(focusRequester)
-                                        .clickable {
-                                            if (!windowFocused) {
-                                                windowFocused = true
-                                                onRequestKeyboardFocus()  // Makes window focusable
-                                                // Request focus + show keyboard after window flag update
-                                                focusRequester.requestFocus()
-                                                val imm = view.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-                                                imm?.showSoftInput(view, InputMethodManager.SHOW_FORCED)
-                                            }
+                                Box(modifier = Modifier.weight(1f)) {
+                                    TextField(
+                                        value = textInput,
+                                        onValueChange = { textInput = it },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(50.dp)
+                                            .focusRequester(focusRequester),
+                                        placeholder = {
+                                            Text(
+                                                if (windowFocused) "Ask something..." else "Tap to type...",
+                                                fontSize = 13.sp
+                                            )
                                         },
-                                    placeholder = { Text(if (windowFocused) "Ask something..." else "Tap to type...", fontSize = 13.sp) },
-                                    colors = TextFieldDefaults.colors(
-                                        focusedContainerColor = Color.White,
-                                        unfocusedContainerColor = Color.White,
-                                        focusedIndicatorColor = Color.Transparent,
-                                        unfocusedIndicatorColor = Color.Transparent
-                                    ),
-                                    shape = RoundedCornerShape(25.dp),
-                                    maxLines = 1,
-                                    readOnly = !windowFocused  // Prevent keyboard until window is focusable
-                                )
+                                        colors = TextFieldDefaults.colors(
+                                            focusedContainerColor = Color.White,
+                                            unfocusedContainerColor = Color.White,
+                                            focusedIndicatorColor = Color.Transparent,
+                                            unfocusedIndicatorColor = Color.Transparent
+                                        ),
+                                        shape = RoundedCornerShape(25.dp),
+                                        maxLines = 1
+                                    )
+                                    // Transparent overlay — intercepts the FIRST tap to activate the window.
+                                    // Once windowFocused=true this overlay is removed and TextField works normally.
+                                    if (!windowFocused) {
+                                        Box(
+                                            modifier = Modifier
+                                                .matchParentSize()
+                                                .clickable {
+                                                    windowFocused = true
+                                                    onRequestKeyboardFocus() // Remove FLAG_NOT_FOCUSABLE
+                                                }
+                                        )
+                                    }
+                                }
                                 Spacer(Modifier.width(8.dp))
                                 Box(
                                     modifier = Modifier
@@ -457,6 +475,7 @@ fun OverlayScreen(
                                 }
                             }
                         }
+
 
                         else -> {}
                     }
