@@ -16,7 +16,7 @@ import java.io.File
 import java.io.FileOutputStream
 
 object ReportCardGenerator {
-    fun generateAndShare(context: Context, trendData: List<DailyTrend>, categoryBreakdown: List<CategoryDetail>) {
+    fun generateReportCardBitmap(context: Context, trendData: List<DailyTrend>, categoryBreakdown: List<CategoryDetail>): Bitmap {
         val width = 1080
         val height = 1920
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -86,7 +86,10 @@ object ReportCardGenerator {
         textPaint.color = Color.parseColor("#A1948B")
         canvas.drawText("Made with GrammarLens", width / 2f, height - 150f, textPaint)
 
-        // Save and share
+        return bitmap
+    }
+
+    fun shareReportCardBitmap(context: Context, bitmap: Bitmap) {
         try {
             val cachePath = File(context.cacheDir, "shared_images")
             cachePath.mkdirs()

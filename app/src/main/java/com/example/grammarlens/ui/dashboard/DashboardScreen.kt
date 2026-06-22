@@ -31,6 +31,11 @@ import com.example.grammarlens.data.database.MistakeEntity
 import com.example.grammarlens.ui.components.PastelColors
 import kotlin.math.max
 
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.Image
+import android.graphics.Bitmap
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
@@ -513,6 +518,63 @@ fun ErrorsTab(
     categoryBreakdown: List<CategoryDetail>,
     onDeleteMistake: (Long) -> Unit
 ) {
+    var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    val context = LocalContext.current
+
+    if (previewBitmap != null) {
+        Dialog(onDismissRequest = { previewBitmap = null }) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.White)
+                    .padding(24.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Report Preview", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = PastelColors.TextMain)
+                    Spacer(Modifier.height(16.dp))
+                    
+                    Image(
+                        bitmap = previewBitmap!!.asImageBitmap(),
+                        contentDescription = "Preview",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(400.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Fit
+                    )
+                    
+                    Spacer(Modifier.height(24.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Button(
+                            onClick = { previewBitmap = null },
+                            modifier = Modifier.weight(1f).height(50.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = PastelColors.ButtonPink),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text("Cancel", color = PastelColors.TextMain, fontWeight = FontWeight.Bold)
+                        }
+                        
+                        Button(
+                            onClick = {
+                                com.example.grammarlens.util.ReportCardGenerator.shareReportCardBitmap(context, previewBitmap!!)
+                                previewBitmap = null
+                            },
+                            modifier = Modifier.weight(1f).height(50.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = PastelColors.SuccessGreen),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text("Share", color = PastelColors.TextMain, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -543,10 +605,9 @@ fun ErrorsTab(
             }
         } else {
             item {
-                val context = LocalContext.current
                 Button(
                     onClick = {
-                        com.example.grammarlens.util.ReportCardGenerator.generateAndShare(
+                        previewBitmap = com.example.grammarlens.util.ReportCardGenerator.generateReportCardBitmap(
                             context, trendData, categoryBreakdown
                         )
                     },
