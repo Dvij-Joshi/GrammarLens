@@ -103,7 +103,7 @@ class GrammarChecker(private val context: Context) {
         val prompt = when (actionType) {
             "Improve Vocabulary" -> "Rewrite the following sentence by upgrading the vocabulary to sound more native and articulate, while keeping the same meaning. Output ONLY the rewritten sentence: \"$sentence\""
             "Make Formal" -> "Rewrite the following sentence to sound highly professional and formal. Output ONLY the rewritten sentence: \"$sentence\""
-            "Make Crisp & Educated" -> "Rewrite the following sentence to sound highly educated, crisp, concise, and articulate. It should sound like a premium, native speaker. Output ONLY the rewritten sentence: \"$sentence\""
+            "Make Crisp" -> "Rewrite the following sentence to sound highly attractive, engaging, and natural. Keep it crisp, clear, and native-sounding without using unnecessarily heavy or exaggerated vocabulary. Output ONLY the rewritten sentence: \"$sentence\""
             else -> return@withContext null
         }
 
