@@ -190,12 +190,14 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                     val loading by isLoadingAction.collectAsState()
                     val actResult by actionResult.collectAsState()
                     val chatList by chatHistory.collectAsState()
+                    val inPauseZone by isDragInPauseZone.collectAsState()
 
                     OverlayScreen(
                         state = currentState,
                         chatHistory = chatList,
                         isLoadingAction = loading,
                         actionResult = actResult,
+                        isDragInPauseZone = inPauseZone,
                         pauseDurationMins = pauseDurationMins,
                         onApplyFix = { onApplyFix?.invoke(it) },
                         onAction = { 
@@ -221,7 +223,8 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                         },
                         onOpenChat = { showChat() },
                         onRequestKeyboardFocus = { makeWindowFocusable() },
-                        onDrag = { dx, dy -> handleDrag(dx, dy) }
+                        onDrag = { dx, dy -> handleDrag(dx, dy) },
+                        onDragEnd = { handleDragEnd() }
                     )
                 }
             }
@@ -323,6 +326,8 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
         try { windowManager.updateViewLayout(view, lp) } catch (e: Exception) {}
     }
 
+    val isDragInPauseZone = kotlinx.coroutines.flow.MutableStateFlow(false)
+
     fun handleDrag(dx: Float, dy: Float) {
         // Gravity is BOTTOM|END, so:
         // dx > 0 (drag right) means distance from END edge decreases -> subtract dx
@@ -330,12 +335,25 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
         bubbleOffsetX -= dx.toInt()
         bubbleOffsetY -= dy.toInt()
         
+        isDragInPauseZone.value = bubbleOffsetY < -150
+        
         val view = composeView ?: return
         val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
         if (overlayState.value is OverlayState.IdleBubble) {
             lp.x = bubbleOffsetX
             lp.y = currentImeHeight + bubbleOffsetY
             try { windowManager.updateViewLayout(view, lp) } catch (e: Exception) {}
+        }
+    }
+
+    fun handleDragEnd() {
+        if (isDragInPauseZone.value) {
+            onPause?.invoke()
+            isDragInPauseZone.value = false
+            
+            // Reset position slightly so it doesn't stay off-screen when it comes back
+            bubbleOffsetY = 0
+            bubbleOffsetX = 0
         }
     }
 }

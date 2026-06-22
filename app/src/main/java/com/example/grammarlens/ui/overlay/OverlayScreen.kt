@@ -49,6 +49,7 @@ fun OverlayScreen(
     chatHistory: List<GroqMessage> = emptyList(),
     isLoadingAction: Boolean = false,
     actionResult: String? = null,
+    isDragInPauseZone: Boolean = false,
     pauseDurationMins: Int = 15,
     onApplyFix: (String) -> Unit = {},
     onAction: (String) -> Unit = {},
@@ -60,6 +61,7 @@ fun OverlayScreen(
     onOpenChat: () -> Unit = {},
     onRequestKeyboardFocus: () -> Unit = {},
     onDrag: (Float, Float) -> Unit = { _, _ -> },  // dx, dy in px — bubble drag
+    onDragEnd: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     if (state is OverlayState.Hidden) return
@@ -74,28 +76,45 @@ fun OverlayScreen(
                 .wrapContentSize()
                 .padding(8.dp)
                 .pointerInput(Unit) {
-                    detectDragGestures { change, dragAmount ->
+                    detectDragGestures(
+                        onDragEnd = { onDragEnd() }
+                    ) { change, dragAmount ->
                         change.consume()
                         onDrag(dragAmount.x, dragAmount.y)
                     }
                 }
         ) {
             // Inner circle: handles tap-to-expand
+            val bubbleColor = when {
+                isDragInPauseZone -> Color(0xFFD32F2F) // Deep Red for Pause Zone
+                hasError -> Color(0xFFFF6B6B)
+                else -> PastelColors.CardBlue
+            }
+
             Box(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(if (hasError) Color(0xFFFF6B6B) else PastelColors.CardBlue)
+                    .background(bubbleColor)
                     .border(2.dp, Color.White, CircleShape)
                     .clickable { onExpand() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.Edit,
-                    contentDescription = "GrammarLens",
-                    tint = Color.White,
-                    modifier = Modifier.size(28.dp)
-                )
+                if (isDragInPauseZone) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Drop to Pause",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "GrammarLens",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
         }
         return

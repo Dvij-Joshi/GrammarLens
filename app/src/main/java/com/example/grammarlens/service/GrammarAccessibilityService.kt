@@ -141,20 +141,23 @@ class GrammarAccessibilityService : AccessibilityService() {
 
         if (type != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
 
-        // Save the editable node - also try source node if not already set
         val srcNode = event.source
+        val isEditable = srcNode?.isEditable == true || event.className?.contains("EditText") == true
+        if (!isEditable) {
+            return
+        }
+
         if (srcNode?.isEditable == true) {
             lastEditableNode = srcNode
         }
 
-        // Show idle bubble for ANY text change event (don't require isEditable - some apps don't report it)
         CoroutineScope(Dispatchers.Main).launch {
             overlayManager.showIdleBubble()
             val imeHeight = getImeHeightPx()
             overlayManager.updateBottomOffset(imeHeight)
         }
 
-        val nodeText = event.source?.text?.toString()
+        val nodeText = srcNode?.text?.toString()
         val eventText = event.text?.joinToString("") { it }
         val text = (nodeText ?: eventText)?.trim() ?: return
 
@@ -199,6 +202,9 @@ class GrammarAccessibilityService : AccessibilityService() {
     }
 
     private suspend fun processSentence(sentence: String) {
+        val sharedPrefs = getSharedPreferences("grammarlens_prefs", Context.MODE_PRIVATE)
+        if (System.currentTimeMillis() < sharedPrefs.getLong("pause_until", 0L)) return
+        
         Log.d("GrammarLens", "Processing sentence: $sentence")
         val result = grammarChecker.analyzeSentence(sentence)
         if (result != null) {
