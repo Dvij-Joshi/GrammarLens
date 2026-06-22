@@ -222,7 +222,6 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                             }
                         },
                         onOpenChat = { showChat() },
-                        onRequestKeyboardFocus = { makeWindowFocusable() },
                         onDrag = { dx, dy -> handleDrag(dx, dy) },
                         onDragEnd = { handleDragEnd() }
                     )
@@ -237,7 +236,7 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                     WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 else
                     @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                (if (newState is OverlayState.Chat) 0 else WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) or
                         WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                         WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
                 PixelFormat.TRANSLUCENT
@@ -276,12 +275,22 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
 
                 val widthChanged = layoutParams.width != newWidth
                 val gravityChanged = layoutParams.gravity != newGravity
-                // NOTE: We no longer toggle FLAG_NOT_FOCUSABLE here.
-                // The window stays non-focusable until the user explicitly taps the chat input,
-                // at which point makeWindowFocusable() is called — this prevents keyboard dismissal.
-                if (widthChanged || gravityChanged) {
+                
+                val wasFocusable = (layoutParams.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) == 0
+                val shouldBeFocusable = (newState is OverlayState.Chat)
+                val focusChanged = wasFocusable != shouldBeFocusable
+                
+                if (widthChanged || gravityChanged || focusChanged) {
                     layoutParams.width = newWidth
                     layoutParams.gravity = newGravity
+                    
+                    if (focusChanged) {
+                        if (shouldBeFocusable) {
+                            layoutParams.flags = layoutParams.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+                        } else {
+                            layoutParams.flags = layoutParams.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        }
+                    }
                     
                     // Apply offsets if returning to IdleBubble
                     if (newState is OverlayState.IdleBubble) {
@@ -299,16 +308,7 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
     }
 
     /** Removes FLAG_NOT_FOCUSABLE so the chat TextField can receive keyboard input.
-     *  Called only when the user explicitly taps the chat input — avoids unwanted keyboard dismissal. */
-    fun makeWindowFocusable() {
-        val view = composeView ?: return
-        val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
-        val alreadyFocusable = (lp.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) == 0
-        if (!alreadyFocusable) {
-            lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
-            try { windowManager.updateViewLayout(view, lp) } catch (e: Exception) {}
-        }
-    }
+     *  Deprecated: Focus is now managed automatically in updateState based on OverlayState.Chat */
 
     /** Called by the service whenever IME (keyboard) height changes. Repositions overlay above the keyboard. */
     fun updateBottomOffset(offsetPx: Int) {

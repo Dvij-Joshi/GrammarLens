@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,7 +60,6 @@ fun OverlayScreen(
     onBack: () -> Unit = {},
     onExpand: () -> Unit = {},
     onOpenChat: () -> Unit = {},
-    onRequestKeyboardFocus: () -> Unit = {},
     onDrag: (Float, Float) -> Unit = { _, _ -> },  // dx, dy in px — bubble drag
     onDragEnd: () -> Unit = {},
     onDismiss: () -> Unit
@@ -401,25 +401,7 @@ fun OverlayScreen(
 
                         is OverlayState.Chat -> {
                             var textInput by remember { mutableStateOf("") }
-                            val focusRequester = remember { FocusRequester() }
                             val view = LocalView.current
-                            var windowFocused by remember { mutableStateOf(false) }
-
-                            // After making window focusable, wait briefly then request focus + show keyboard
-                            LaunchedEffect(windowFocused) {
-                                if (windowFocused) {
-                                    var retries = 0
-                                    while (retries < 3) {
-                                        kotlinx.coroutines.delay(150) // Let FLAG_NOT_FOCUSABLE removal take effect
-                                        try { focusRequester.requestFocus() } catch (e: Exception) {}
-                                        val imm = view.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-                                        if (imm?.isActive(view) == true || imm?.showSoftInput(view, 0) == true) {
-                                            break
-                                        }
-                                        retries++
-                                    }
-                                }
-                            }
 
                             Spacer(Modifier.height(4.dp))
 
@@ -433,16 +415,17 @@ fun OverlayScreen(
                                     .padding(8.dp)
                             ) {
                                 val scrollState = rememberScrollState()
-                                Column(
-                                    modifier = Modifier
-                                        .verticalScroll(scrollState)
-                                        .fillMaxWidth()
-                                ) {
-                                    if (chatHistory.none { it.role != "system" }) {
-                                        Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                            Text("Ask me anything!", fontSize = 13.sp, color = PastelColors.TextMain.copy(alpha = 0.4f))
+                                SelectionContainer {
+                                    Column(
+                                        modifier = Modifier
+                                            .verticalScroll(scrollState)
+                                            .fillMaxWidth()
+                                    ) {
+                                        if (chatHistory.none { it.role != "system" }) {
+                                            Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                                Text("Ask me anything!", fontSize = 13.sp, color = PastelColors.TextMain.copy(alpha = 0.4f))
+                                            }
                                         }
-                                    }
                                     chatHistory.forEach { msg ->
                                         if (msg.role != "system") {
                                             val isUser = msg.role == "user"
@@ -463,16 +446,16 @@ fun OverlayScreen(
                                             }
                                         }
                                     }
-                                    if (isLoadingAction) {
-                                        Text("typing...", fontSize = 11.sp, color = PastelColors.TextMain.copy(alpha = 0.5f), modifier = Modifier.padding(4.dp))
+                                        if (isLoadingAction) {
+                                            Text("typing...", fontSize = 11.sp, color = PastelColors.TextMain.copy(alpha = 0.5f), modifier = Modifier.padding(4.dp))
+                                        }
                                     }
                                 }
                             }
 
                             Spacer(Modifier.height(12.dp))
 
-                            // Input row — invisible tap-catcher overlay sits on top of TextField until
-                            // window is made focusable; after first tap it disappears and TextField is live
+                            // Input row
                             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                 Box(modifier = Modifier.weight(1f)) {
                                     TextField(
@@ -480,13 +463,9 @@ fun OverlayScreen(
                                         onValueChange = { textInput = it },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(50.dp)
-                                            .focusRequester(focusRequester),
+                                            .height(50.dp),
                                         placeholder = {
-                                            Text(
-                                                if (windowFocused) "Ask something..." else "Tap to type...",
-                                                fontSize = 13.sp
-                                            )
+                                            Text("Ask something...", fontSize = 13.sp)
                                         },
                                         colors = TextFieldDefaults.colors(
                                             focusedContainerColor = Color.White,
@@ -497,18 +476,6 @@ fun OverlayScreen(
                                         shape = RoundedCornerShape(25.dp),
                                         maxLines = 1
                                     )
-                                    // Transparent overlay — intercepts the FIRST tap to activate the window.
-                                    // Once windowFocused=true this overlay is removed and TextField works normally.
-                                    if (!windowFocused) {
-                                        Box(
-                                            modifier = Modifier
-                                                .matchParentSize()
-                                                .clickable {
-                                                    windowFocused = true
-                                                    onRequestKeyboardFocus() // Remove FLAG_NOT_FOCUSABLE
-                                                }
-                                        )
-                                    }
                                 }
                                 Spacer(Modifier.width(8.dp))
                                 Box(

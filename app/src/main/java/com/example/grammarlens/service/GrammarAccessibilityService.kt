@@ -179,6 +179,11 @@ class GrammarAccessibilityService : AccessibilityService() {
 
         Log.d("GrammarLens", "Scheduling check in ${delayMs}ms for: '${candidate.takeLast(50)}'")
 
+        if (overlayManager.lastGrammarResult?.originalText != candidate) {
+            overlayManager.lastGrammarResult = null
+            overlayManager.showIdleBubble()
+        }
+
         debounceJob = serviceScope.launch {
             delay(delayMs)
             processSentence(candidate)
