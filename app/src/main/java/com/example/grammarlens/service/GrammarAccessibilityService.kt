@@ -103,6 +103,14 @@ class GrammarAccessibilityService : AccessibilityService() {
             overlayManager.hideOverlay()
         }
 
+        overlayManager.onDragPause = {
+            // Drag-to-dismiss always pauses for exactly 5 minutes
+            val prefs = getSharedPreferences("grammarlens_prefs", Context.MODE_PRIVATE)
+            val now = System.currentTimeMillis()
+            prefs.edit().putLong("pause_until", now + (5 * 60 * 1000L)).apply()
+            overlayManager.hideOverlay()
+        }
+
         Log.d("GrammarLens", "Accessibility Service Connected")
     }
 
