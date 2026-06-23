@@ -54,6 +54,7 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
     var onAction: ((String) -> Unit)? = null
     var onExplain: (() -> Unit)? = null
     var onPause: (() -> Unit)? = null
+    var onDragPause: (() -> Unit)? = null  // Drag-to-pause: always 5 mins, regardless of settings
     var onSendMessage: ((String) -> Unit)? = null
     var onBack: (() -> Unit)? = null
     var lastGrammarResult: com.example.grammarlens.network.GrammarCheckResult? = null
@@ -147,6 +148,9 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                 try { windowManager.updateViewLayout(view, lp) } catch (e: Exception) {}
             }
         }
+        // Always reset bubble position so it reappears at the default corner next time
+        bubbleOffsetX = 0
+        bubbleOffsetY = 0
         updateState(OverlayState.Hidden)
     }
 
@@ -368,10 +372,8 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
 
     fun handleDragEnd() {
         if (isDragInPauseZone.value) {
-            onPause?.invoke()
+            onDragPause?.invoke()   // Always 5-minute pause when dragged to dismiss
             isDragInPauseZone.value = false
-            
-            // Reset position slightly so it doesn't stay off-screen when it comes back
             bubbleOffsetY = 0
             bubbleOffsetX = 0
         }
