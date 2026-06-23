@@ -7,6 +7,7 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
@@ -237,7 +238,7 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                 else
                     @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
                 (if (newState is OverlayState.Chat) 0 else WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) or
-                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                        (if (newState is OverlayState.Chat) 0 else WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL) or
                         WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
                 PixelFormat.TRANSLUCENT
             ).apply {
@@ -256,6 +257,13 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
             }
 
             windowManager.addView(composeView, layoutParams)
+            // If opening directly into Chat, show keyboard immediately
+            if (newState is OverlayState.Chat) {
+                composeView?.post {
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    composeView?.let { imm?.showSoftInput(it, InputMethodManager.SHOW_IMPLICIT) }
+                }
+            }
             // Post a position update after the view is attached to handle delayed IME detection
             composeView?.post {
                 if (currentImeHeight > 0) updateBottomOffset(currentImeHeight)
@@ -286,9 +294,13 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                     
                     if (focusChanged) {
                         if (shouldBeFocusable) {
-                            layoutParams.flags = layoutParams.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+                            layoutParams.flags = layoutParams.flags and
+                                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv() and
+                                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL.inv()
                         } else {
-                            layoutParams.flags = layoutParams.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                            layoutParams.flags = layoutParams.flags or
+                                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
                         }
                     }
                     
@@ -302,6 +314,14 @@ class FloatingOverlayManager(private val context: Context) : LifecycleOwner, Sav
                     }
 
                     try { windowManager.updateViewLayout(composeView, layoutParams) } catch (e: Exception) {}
+                    
+                    // After making focusable for Chat, show the keyboard
+                    if (shouldBeFocusable) {
+                        composeView?.post {
+                            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                            composeView?.let { imm?.showSoftInput(it, InputMethodManager.SHOW_IMPLICIT) }
+                        }
+                    }
                 }
             }
         }
