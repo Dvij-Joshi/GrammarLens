@@ -120,18 +120,23 @@ class GrammarAccessibilityService : AccessibilityService() {
         val type = event?.eventType ?: return
 
         // Handle focus/window events for keyboard detection only
-        if (type == AccessibilityEvent.TYPE_VIEW_FOCUSED || type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+        if (type == AccessibilityEvent.TYPE_VIEW_FOCUSED ||
+            type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+            type == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
             val node = event.source
             if (node?.isEditable == true) {
                 lastEditableNode = node
             }
-            // On any focus/window event, refresh keyboard height (keyboard may have just opened)
+            // On any focus/window event, refresh keyboard height (keyboard may have just opened/closed)
             serviceScope.launch {
-                delay(200) // Short delay to let keyboard animation complete
+                delay(300) // Short delay to let keyboard animation complete
                 val imeHeight = getImeHeightPx()
                 withContext(Dispatchers.Main) {
                     overlayManager.updateBottomOffset(imeHeight)
-                    if (imeHeight == 0 && overlayManager.overlayState.value is OverlayState.IdleBubble) {
+                    // If keyboard is gone, hide the bubble entirely
+                    val currentState = overlayManager.overlayState.value
+                    if (imeHeight == 0 &&
+                        (currentState is OverlayState.IdleBubble || currentState is OverlayState.GrammarSuggestion)) {
                         overlayManager.hideOverlay()
                     }
                 }
