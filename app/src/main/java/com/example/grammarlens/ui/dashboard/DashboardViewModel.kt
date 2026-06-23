@@ -2,6 +2,7 @@ package com.example.grammarlens.ui.dashboard
 
 import android.app.Application
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.grammarlens.data.database.GrammarDatabase
@@ -84,8 +85,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _installedApps = MutableStateFlow<List<AppInfo>>(emptyList())
     val installedApps: StateFlow<List<AppInfo>> = _installedApps.asStateFlow()
 
+    private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "pause_until") {
+            _pauseUntil.value = sharedPrefs.getLong("pause_until", 0L)
+        }
+    }
+
     init {
         loadInstalledApps()
+        sharedPrefs.registerOnSharedPreferenceChangeListener(prefsListener)
     }
 
     private fun loadInstalledApps() {
