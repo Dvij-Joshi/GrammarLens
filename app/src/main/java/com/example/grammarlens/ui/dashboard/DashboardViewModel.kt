@@ -207,7 +207,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     val trendData: StateFlow<List<DailyTrend>> = allMistakesFlow.map { entities ->
         val today = LocalDate.now()
         val fourteenDaysAgo = today.minusDays(13)
-        val dateFormatter = DateTimeFormatter.ofPattern("MMM dd")
+        val dateFormatter = DateTimeFormatter.ofPattern("EEE")
 
         // Initialize empty map for all 14 days
         val dailyMap = mutableMapOf<LocalDate, Pair<Int, Int>>() // <Mistakes, Checks>

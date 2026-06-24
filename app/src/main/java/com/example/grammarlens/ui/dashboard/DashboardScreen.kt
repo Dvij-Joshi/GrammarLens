@@ -804,7 +804,7 @@ fun PastelChartCard(trendData: List<DailyTrend>) {
                 List(7) { 0f to "-" }
             } else {
                 val padding = List(7 - last7.size) { 0f to "-" }
-                padding + last7.map { (it.mistakeRate / maxRate) to it.dateString.take(3) }
+                padding + last7.map { (it.mistakeRate / maxRate) to it.dateString }
             }
 
             Row(
