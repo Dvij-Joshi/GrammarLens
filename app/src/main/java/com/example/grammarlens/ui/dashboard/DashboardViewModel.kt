@@ -91,6 +91,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    /** Call this on every Activity ON_RESUME to pick up pause_until written by the service. */
+    fun refreshPauseState() {
+        _pauseUntil.value = sharedPrefs.getLong("pause_until", 0L)
+    }
+
     init {
         loadInstalledApps()
         sharedPrefs.registerOnSharedPreferenceChangeListener(prefsListener)

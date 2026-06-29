@@ -52,6 +52,18 @@ fun DashboardScreen(
     val isServiceEnabled by viewModel.isServiceEnabled.collectAsState()
     val pauseUntil by viewModel.pauseUntil.collectAsState()
 
+    // Refresh pause state whenever the screen comes back into view
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshPauseState()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     var currentTab by remember { mutableIntStateOf(0) }
     var showTestingSheet by remember { mutableStateOf(false) }
 
