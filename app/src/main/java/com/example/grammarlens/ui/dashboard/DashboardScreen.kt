@@ -192,17 +192,38 @@ fun DashboardTab(
                         color = PastelColors.TextMain
                     )
                     
+                    val isDragPaused = pauseUntil > System.currentTimeMillis()
+                    val isEffectivelyActive = isServiceEnabled && hasPermissions && !isDragPaused
+
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Smart Correction", fontSize = 12.sp, color = PastelColors.TextMain.copy(alpha=0.6f))
+                        Text(
+                            text = when {
+                                isDragPaused -> "Paused"
+                                !isServiceEnabled || !hasPermissions -> "Disabled"
+                                else -> "Smart Correction"
+                            },
+                            fontSize = 12.sp,
+                            color = if (isDragPaused) Color(0xFFD32F2F)
+                                    else PastelColors.TextMain.copy(alpha = 0.6f)
+                        )
                         Spacer(Modifier.width(8.dp))
                         Switch(
-                            checked = isServiceEnabled && hasPermissions,
-                            onCheckedChange = { if (hasPermissions) viewModel.toggleServiceEnabled(it) else onOpenSettings() },
+                            checked = isEffectivelyActive,
+                            onCheckedChange = {
+                                if (isDragPaused) {
+                                    // Tapping to turn ON while paused = resume
+                                    viewModel.setPauseUntil(0L)
+                                } else if (hasPermissions) {
+                                    viewModel.toggleServiceEnabled(it)
+                                } else {
+                                    onOpenSettings()
+                                }
+                            },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
                                 checkedTrackColor = PastelColors.ToggleOn,
                                 uncheckedThumbColor = Color.White,
-                                uncheckedTrackColor = Color(0xFFE2E8F0)
+                                uncheckedTrackColor = if (isDragPaused) Color(0xFFFFCDD2) else Color(0xFFE2E8F0)
                             ),
                             modifier = Modifier.height(24.dp)
                         )
